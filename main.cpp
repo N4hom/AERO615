@@ -20,6 +20,8 @@ int main(int argc, char const *argv[])
 	grid.x().print();
 	grid.y().print();
 	grid.alpha().print();
+	grid.beta().print();
+	grid.gamma().print();
 
 
 	//std::cout << A.size() << endl;

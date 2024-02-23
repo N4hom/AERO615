@@ -13,7 +13,7 @@ private:
 	unsigned int _Jmax;
 	double _deltaCsi, _deltaEta;
 	Matrix<double> _x, _y;  // Solution storage
-	Matrix<double> _alpha, _beta, _gamma;  // Coefficient storage. They could be a vector but for now I'll keep them Matrices
+	Matrix<double> _alpha, _beta, _gamma;  // Coefficient storage. They could be a vector but for now I'll keep them Matrices. I was kidding, they're matrices
 	Matrix<double> _A; // Problem matrix
 public:
 	Problem(unsigned int, unsigned int);
@@ -73,6 +73,8 @@ void Problem::initialize()
 	// alpha, beta and gamma are set to zero everywhere except in the interior
 
 	updateAlpha();
+	updateBeta();
+	updateGamma();
 
 	// update alpha
 	// update beta 
@@ -87,12 +89,9 @@ void Problem::updateAlpha()
 	{
 		for (int j = 1; j < _alpha.cols() - 1; ++j)
 		{
-			if (i == j)
-			{
-				//std::cout << _x(i, j + 1 ) - _x(i, j - 1 )<< std::endl;
-				//std::cout << pow( _x(i,j + 1) - _x(i,j - 1) , 2) + pow(_y(i,j + 1) - _y(i,j-1) , 2)<< std::endl;
-				_alpha(i,j) = 1.0/4.0/pow(_deltaEta, 2) *(pow( _x(i,j + 1) - _x(i,j - 1) , 2) + pow(_y(i,j + 1) - _y(i,j-1) , 2));
-			}
+			
+			_alpha(i,j) = 1.0/4.0/pow(_deltaEta, 2) *(pow( _x(i,j + 1) - _x(i,j - 1) , 2) + pow(_y(i,j + 1) - _y(i,j-1) , 2));
+			
 		}
 	}
 }
@@ -104,12 +103,23 @@ void Problem::updateBeta()
 	{
 		for (int j = 1; j < _alpha.cols() - 1; ++j)
 		{
-			if (i == j)
-			{
-				_beta(i,j) = 1.0/4./_deltaEta/_deltaCsi*((_x(i+1,j) - x(i-1,j))*(x(i,j+1) - x(i, j -1)) + (y(i+1,j - y(i-1,j)))*(y(i,j+1) - y(i,j-1)) );
-				
-			}
+			_beta(i,j) = 1.0/4./_deltaEta/_deltaCsi*((_x(i+1,j) - _x(i-1,j))*(_x(i,j+1) - _x(i, j -1)) + (_y(i+1,j - _y(i-1,j)))*(_y(i,j+1) - _y(i,j-1)) );	
 		}
 	}
 }
 
+
+void Problem::updateGamma()
+{
+	for (int i = 1; i < _alpha.rows() - 1; ++i)
+	{
+		for (int j = 1; j < _alpha.cols() - 1; ++j)
+		{
+			//std::cout << _x(i, j + 1 ) - _x(i, j - 1 )<< std::endl;
+			//std::cout << pow( _x(i,j + 1) - _x(i,j - 1) , 2) + pow(_y(i,j + 1) - _y(i,j-1) , 2)<< std::endl;
+			std::cout << (pow( _x(i + 1,j ) - _x(i - 1,j ) , 2) + pow(_y(i + 1,j) - _y(i - 1,j) , 2)) << std::endl;
+			_gamma(i,j) = 1.0/4.0/pow(_deltaCsi, 2) *(pow( _x(i + 1,j ) - _x(i - 1,j ) , 2) + pow(_y(i + 1,j) - _y(i - 1,j) , 2));
+			
+		}
+	}
+}
