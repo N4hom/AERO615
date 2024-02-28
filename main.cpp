@@ -11,17 +11,13 @@
 
 int main(int argc, char const *argv[])
 {
-	Matrix A(2,2,1);
-	A.print();
+	
 
 	
 	Problem grid = Problem(5,5);
 	grid.initialize();
-	grid.x().print();
-	grid.y().print();
-	grid.alpha().print();
-	grid.beta().print();
-	grid.gamma().print();
+	
+	grid.solve();
 
 
 	//std::cout << A.size() << endl;

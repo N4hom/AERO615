@@ -4,6 +4,7 @@
 #define NDEBUG
 #include <cassert>
 #include <vector>
+#include "Vector.hpp"
 
 /**
  * Class that holds a N x M matrix with common matrix operations.
@@ -94,12 +95,28 @@ public:
       A[i][j] = v[i];
   }
 
+  // Set the j-th row to vector v
+  void setColumn(unsigned int j, Vector<T> v)
+  {
+    assert(j < M && vs.size() == N);
+    for (unsigned int i = 0; i < N; ++i)
+      A[i][j] = v(i);
+  }
+
   // Set the i-th column to vector v
   void setRow(unsigned int i, std::vector<T> &v) 
   {
     assert(i < N && vs.size() == M);
     for (unsigned int j = 0; j < M; ++j)
       A[i][j] = v[j];
+  }
+
+   // Set the i-th column to vector v
+  void setRow(unsigned int i, Vector<T> v) 
+  {
+    assert(i < N && vs.size() == M);
+    for (unsigned int j = 0; j < M; ++j)
+      A[i][j] = v(j);
   }
 
   // Print matrix

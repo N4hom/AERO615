@@ -39,6 +39,11 @@ public:
     return v[i];
   }
 
+  unsigned int size() const
+  {
+    return N;
+  }
+
   // Prints the vector
   void print(const string prefix = "", const bool newline = false, const unsigned int pr = 6) const
   {
