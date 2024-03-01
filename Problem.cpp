@@ -336,8 +336,8 @@ void Problem::updateCoeff()
 		for (int j = 0; j < _M + 2; ++j)
 		{
 			_aP(i,j) = -2*_alpha(i,j)/pow(_deltaCsi, 2) - 2*_gamma(i,j)/pow(_deltaCsi, 2);
-			_aN(i,j) = 2*_alpha(i,j)/pow(_deltaCsi,2);
-			_aS(i,j) = 2*_alpha(i,j)/pow(_deltaCsi,2);
+			_aN(i,j) = _alpha(i,j)/pow(_deltaCsi,2);
+			_aS(i,j) = _alpha(i,j)/pow(_deltaCsi,2);
 			_aNE(i,j) = _beta(i,j)/2/_deltaCsi/_deltaEta;
 			_aSE(i,j) = _beta(i,j)/2/_deltaCsi/_deltaEta;
 			_aSW(i,j) = _beta(i,j)/2/_deltaCsi/_deltaEta;
@@ -455,7 +455,7 @@ void Problem::buildColVector_x(Vector<double>& bx, unsigned int j)  // integer j
 		std::cout << "x(i-1,j-1) = " << _x(i-1,j-1) << std::endl;
 		std::cout << "_aNE(i,j)*(_x(i+1, j+1) - _x(i+1, j-1) - _x(i-1, j+1) + _x(i-1, j-1) ) = " << _aNE(i,j)*(_x(i+1, j+1) - _x(i+1, j-1) - _x(i-1, j+1) + _x(i-1, j-1) ) << std::endl;
 		std::cout << "_aE(i,j)*(_x(i,j+1) + _x(i,j-1)) = " << _aE(i,j)*(_x(i,j+1) + _x(i,j-1)) << std::endl;
-		bx(l) = _aNE(i,j)*(_x(i+1, j+1) - _x(i+1, j-1) - _x(i-1, j+1) + _x(i-1, j-1) ) - _aE(i,j)*(_x(i,j+1) + _x(i,j-1)); 
+		bx(l) = _aNE(i,j)*(_x(i+1, j+1) - _x(i+1, j+1) - _x(i+1, j+1) + _x(i-1, j-1) ) - _aE(i,j)*(_x(i,j+1) + _x(i,j-1)); 
 		std::cout << "bx(l) = " << bx(l) << std::endl;
 	}
 }
