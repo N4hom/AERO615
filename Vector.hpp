@@ -15,7 +15,7 @@ template <typename T>
 class Vector
 {
 public:
-  Vector(const unsigned int N) : v(N), N(N) {}
+  Vector(const unsigned int N) : v(N,0), N(N) {}
   Vector() {}
 
   const T & operator()(const unsigned int i) const
@@ -54,6 +54,11 @@ public:
     cout << endl;
     if (newline)
       cout << endl;
+  }
+
+  Vector<T>& operator=(Vector<T>& v)
+  {
+    return v;
   }
 
   // // Saves the vector
