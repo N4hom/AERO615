@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Vector.hpp"
 #include "Matrix.hpp"
-
+#include <ctime>
 // x = [0, 0, 0]                        
 // a = [[4, 1, 2],[3, 5, 1],[1, 1, 3]]
 // b = [4,7,3]
@@ -87,7 +87,7 @@ Vector<T> solveTridiagonal(Matrix<T>& A, Vector<T>& d) {
 
 int main(int argc, char const *argv[])
 {
-
+	clock_t start;
 
 	std::cout << "First test " << std::endl;
 	
@@ -169,6 +169,9 @@ int main(int argc, char const *argv[])
 
     // Print the solution
     solution.print() ;
+
+
+    std::cout << (float)start/CLOCKS_PER_SEC << std::endl;
 
 
 	return 0;

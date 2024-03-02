@@ -5,6 +5,7 @@
 #include <cassert>
 #include <vector>
 #include "Vector.hpp"
+#include <iostream>
 
 /**
  * Class that holds a N x M matrix with common matrix operations.
@@ -133,6 +134,24 @@ public:
     }
 
     std::cout << std::endl;
+  }
+
+  // Saves the matrix in csv format
+  void save(const string filename, const unsigned int pr = 12) const
+  {
+    ofstream f;
+    f.open(filename);
+    for (unsigned int j = 0; j < M; ++j)
+    {
+      for (unsigned int i = 0; i < N; ++i)
+      {
+        if (i > 0)
+          f << ",";
+        f << setprecision(pr) << A[i][j];
+      }
+      f << endl;
+    }
+    f.close();
   }
 
 
