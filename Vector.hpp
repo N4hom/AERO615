@@ -10,7 +10,9 @@
 using namespace std;
 
 /**
- * Class that stores a 1D vector and enables printing and saving.
+ * 
+ *    Vector class with custom access operators, printing and saving into files
+ * 
  */
 template <typename T>
 class Vector
@@ -62,15 +64,6 @@ public:
     return v;
   }
 
-  // // Saves the vector
-  // void save(const string filename, const unsigned int pr = 12) const
-  // {
-  //   ofstream f;
-  //   f.open(filename);
-  //   for (unsigned int i = 0; i < v.size(); ++i)
-  //     f << scientific << v[i] << endl;
-  //   f.close();
-  // }
 
 private:
   vector<T> v;

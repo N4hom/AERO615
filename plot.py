@@ -13,8 +13,7 @@ print("M " , M)
 x = x/5
 y = y/1
 
-print(x)
-print(y)
+
 
 
 plt.plot(x,y , color='b')

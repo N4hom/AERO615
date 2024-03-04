@@ -8,13 +8,15 @@
 #include <iostream>
 
 /**
- * Class that holds a N x M matrix with common matrix operations.
+ *
+ *  Matrix class for data storage.
+ * 
  */
 template <typename T>
 class Matrix {
 
 private:
-  // The size of this matrix
+  //- size of this matrix
   const unsigned int N, M;
 
   // Matrix storage
@@ -39,17 +41,7 @@ public:
      return N;
   }
 
-  // unsigned int rowNumber()
-  // {
-  //    return A.size();
-  // }
-
-  // unsigned int colNumber()
-  // {
-  //    return A[0].size();
-  // }
-
-  // Const access to the ith,jth element
+  // Const access to the ith,jth element  (read only)
   const T &operator()(unsigned int i, unsigned int j) const
   {
     // Check if the indexes are consistent with the size
@@ -141,11 +133,11 @@ public:
   {
     ofstream f;
     f.open(filename);
-    for (unsigned int j = 0; j < M; ++j)
+    for (unsigned int i = 0; i < N; ++i)
     {
-      for (unsigned int i = 0; i < N; ++i)
+      for (unsigned int j = 0; j < M; ++j)
       {
-        if (i > 0)
+        if (j > 0)
           f << ",";
         f << setprecision(pr) << A[i][j];
       }
@@ -154,8 +146,6 @@ public:
     f.close();
   }
 
-
-  // Gauss-Seidel algorithm
 
 };
 

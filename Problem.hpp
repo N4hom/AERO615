@@ -11,18 +11,26 @@ class Problem
 {
 private:
 
-	double _L = 5.0, _H = 1.0;   // Lenght and height
-	unsigned int _N, _M;  // Size of the problem
-	unsigned int _Imax;
+	//- Lenght and height
+	double _L = 5.0, _H = 1.0;   
+	
+	//- Number of unknowns along each direction per variable
+	unsigned int _N, _M;  
+	unsigned int _Imax; 
 	unsigned int _Jmax;
+	
+	//- Grid size along csi and eta
 	double _deltaCsi, _deltaEta;
-	Matrix<double> _x, _y;  // Solution storage
-	// Matrix<double> _xPrev;
-	// Matrix<double> _yPrev;
-	double _alpha, _beta, _gamma;  // Coefficient storage. They could be a vector but for now I'll keep them Matrices. I was kidding, they're matrices
-
+	
+	//- Solution storage
+	Matrix<double> _x, _y;  
+	
+	// Coefficient storage at location ij
+	double _alpha, _beta, _gamma;  
 	double _a1, _a2, _a4;
-	double _tol = 1e-5;
+
+	// Tolerance for convergence criterion
+	double _tol = 1e-5;   
 
 
 
@@ -36,14 +44,7 @@ public:
 	void updateGamma(unsigned int i, unsigned int j);
 	double calculateError();
 	
-	// Create linear system in each row of the domain. To be used inside sweepRows() where a temporary matrix is created
-
-	Vector<double> GaussSeidel(Matrix<double>& A, Vector<double>& b, double tol=1e-7 , unsigned int N=5000);
-	void solve2();
-
-	// Matrix<double>& alpha(){ return _alpha;};
-	// Matrix<double>& beta(){ return _beta;};
-	// Matrix<double>& gamma(){ return _gamma;};
+	void solve();
 
 	Matrix<double>& x(){ return _x;};
 	Matrix<double>& y(){ return _y;};

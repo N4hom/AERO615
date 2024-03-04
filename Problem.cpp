@@ -37,13 +37,13 @@ double pow2(double f)
 void Problem::initialize()
 {
 	// x and y are set to zero everywhere except on the boundary 
-
-	// Adjust boundary conditions for y at i=0 and i = Imax
+	// Adjust boundary conditions for j = _Jmax ---> x = _L
+	// and for j = 0 ---> x = 0.
+	// Initialize internal points with algebraic grid
 
 	std::cout << "Initializing x " << std::endl;
 
 	_x.setColumn(_Jmax, _L);
-	// Adjust boundary conditions for x at j=0 and j= Jmax
 	for (int j = 1; j < _x.cols() - 1; ++j)
 	{
 		_x(0,j) = _x(0,j-1) + _deltaEta;
@@ -59,6 +59,9 @@ void Problem::initialize()
 
 	std::cout << "Initializing y " << std::endl;
 	
+	//- Applying boundary conditions at i = 0 and i = _Imax 
+	//  if eta location is between  2 and 3 apply sinusoidal functions
+	//  else set _y(0,j) to 0 and _y(_Imax,j) to _H
 
 	for (int j = 0; j < _y.cols() ; ++j)
 	{
@@ -78,7 +81,7 @@ void Problem::initialize()
 	}
 
 
-
+	//- Apply boundary conditions at i = 0  and i = _Imax for y
 	for (int i = 1; i < _y.rows() - 1; ++i)
 	{
 		_y(i,0) = _y(i-1,0) - _deltaCsi;
@@ -93,7 +96,7 @@ void Problem::initialize()
 
 }
 
-void Problem::solve2()
+void Problem::solve()
 {
 	unsigned int iter = 0;
 	Matrix<double> xPrev(_N+2,_M+2, 0);
@@ -107,7 +110,7 @@ void Problem::solve2()
 		double errMax_x = 0;
 		double errMax_y =  0;
 
-		
+		//- Sweep over rows for y
 		for (int i = 1; i < _N + 1; ++i)
 		{
 			for (int j = 1; j < _M + 1; ++j)
@@ -128,6 +131,7 @@ void Problem::solve2()
 			}
 		}
 
+		//- Sweep over columns for x
 		for (int j = _M ; j > 0 ; --j)
 		{
 			for (int i = 1; i < _N + 1; ++i)
@@ -159,16 +163,12 @@ void Problem::solve2()
 
 		++iter;
 
-		if (iter > 1000)
+		if (iter > 5000)
 		{
-			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
-			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
-			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
-			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
+			std::cout << "Not converged !!!!!!!!!!!!!!!!!!!!!!" << std::endl;
 			break;
 		}
-		// _x.print();
-		// _y.print();
+		
 
 	}	
 	while (errX > _tol || errY > _tol);
@@ -215,82 +215,6 @@ void Problem::updateGamma(unsigned int i, unsigned int j)
 	//std::cout << "Updated gamma : " << std::endl;
 }
 
-
-// void Problem::updateCoeff()
-// {
-// 	std::cout << "Updating coeff " << std::endl;
-// 	_a1 = _beta(i,j)/2/_deltaCsi/_deltaEta/-2.0/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-// 	_a2 = - _gamma(i,j)/pow2(_deltaEta)/-2/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-// 	_a4 = - _alpha(i,j)/pow2(_deltaEta)/-2/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-	
-// }
-
-
-
-
-Vector<double> Problem::GaussSeidel(Matrix<double>& A, Vector<double>& b, double tol , unsigned int N)
-{
-	Vector<double> u(A.cols());
-    Vector<double> uPrev(A.cols());
-    double err = tol + 1;  // Initialize err to a value greater than tol
-    unsigned int n = 0;
-
-    while (n < N && err > tol)
-    {
-        uPrev = u;  // Save the previous iteration
-
-        for (int l = 0; l < A.cols(); ++l)
-        {
-            u(l) = b(l) / A(l, l);
-
-            for (int k = 0; k < A.cols(); ++k)
-            {
-                if (l != k)
-                {
-                    u(l) -= A(l, k) / A(l, l) * u(k);
-                }
-            }
-        }
-
-        // Calculate the error
-        err = 0.0;
-        for (int i = 0; i < A.cols(); ++i)
-        {
-            err += std::abs(u(i) - uPrev(i));
-        }
-
-        ++n;
-
-        if (n > N)
-        {
-        	std::cout << "CONVERGENCE FAILED !!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        	std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        }
-    }
-
-    return u;
-	
-
-	return u;
-}
-
-// double calculateError()
-// {
-// 	for (int i = 1; i < _N - 1 ; ++i)
-// 	{
-// 		for (int j = 1; j < _M + 1; ++i)
-// 		{
-// 			_yPrev
-// 		}
-// 	}
-// }
 
 
 void Problem::save()
