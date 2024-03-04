@@ -16,19 +16,17 @@ _y(N + 2 , M + 2),
 // _yPrev(_N+2,_M+2),
 _alpha(0.0),
 _beta(0.0),
-_gamma(0.0),
-_A(N + 2 , M + 2)
+_gamma(0.0)
 {
-	std::cout << "Problem initialized " << std::endl;
-	std::cout << "_deltaEta =" << _deltaEta << std::endl;
-	std::cout << "_deltaCsi " << _deltaCsi << std::endl;
-	std::cout << "Number of nodes along x : " << N << std::endl;
-	std::cout << "Number of nodes along y : " << M << std::endl;
+	std::cout << "Problem parameters " << std::endl;
+	std::cout << "_deltaEta = " << _deltaEta << std::endl;
+	std::cout << "_deltaCsi = " << _deltaCsi << std::endl;
+	std::cout << "Number of nodes along csi : " << N << std::endl;
+	std::cout << "Number of nodes along eta : " << M << std::endl;
 }
 
 Problem::~Problem()
 {
-	std::cout << "Problem over " << std::endl;
 }
 
 double pow2(double f)
@@ -60,20 +58,17 @@ void Problem::initialize()
 	_x.setColumn(0  ,  0);
 
 	std::cout << "Initializing y " << std::endl;
-	_y.print();
 	
 
 	for (int j = 0; j < _y.cols() ; ++j)
 	{
 		double etaj = j * _deltaEta;
-		std::cout << "etaj " << etaj << std::endl;
 
 		if (etaj > 2 && etaj < 3)
 		{
 			_y(0,j) = 1 - 0.2*sin(M_PI *(_x(0,j) - 2));
 			_y(_Imax,j) = 0.2*sin(M_PI *(_x(0,j) - 2));
 
-			std::cout << "y " << 0.2*sin(M_PI *(_x(0,j) - 2)) << std::endl;
 		}
 		else
 		{
@@ -91,33 +86,10 @@ void Problem::initialize()
 
 	}
 
-	// for (int i = 1; i < _y.rows() - 1; ++i)
-	// {
-	// 	std::cout << i << std::endl;
-	// 	_y(i,0) = _y(i-1,0) - _deltaCsi;
-	// 	_y(i,_Jmax) = _y(i-1,_Jmax) - _deltaCsi;
-
-	// 	for (int j = 1; j < _y.cols() - 1; ++j)
-	// 	{
-	// 		// _y(i,j) = 0.0 ;
-	// 		_y(i,j) = _y(i,j-1) ;
-	// 	}
-	// }
-
-	// alpha, beta and gamma are set to zero everywhere except in the interior
-
-	
-
-	// Initialize the a coefficients. 9 Matrices to be created.
-	//updateCoeff();
-
-
-
-	// _a1 = _beta(i,j)/2/_deltaCsi/_deltaEta/-2.0/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-	// _a2 = - _gamma(i,j)/pow2(_deltaEta)/-2/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-	// _a4 = - _alpha(i,j)/pow2(_deltaEta)/-2/(_alpha(i,j)/_deltaCsi + _gamma(i,j)/_deltaEta);
-
-
+	std::cout << "Initial x " << std::endl;
+	_x.print();
+	std::cout << "Initial y " << std::endl;
+	_y.print();
 
 }
 

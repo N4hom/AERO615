@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Matrix.hpp"
 #include "Problem.cpp"
-#include <ctime>
+#include <chrono>
 // Read input :
 //   - N
 //   - Boundary conditions
@@ -11,8 +11,7 @@
 
 int main(int argc, char const *argv[])
 {	
-	clock_t start;
-	start = clock();
+	auto startTime = std::chrono::high_resolution_clock::now();
 
 	Problem grid = Problem(20,120);
 	grid.initialize();
@@ -20,7 +19,12 @@ int main(int argc, char const *argv[])
 	grid.solve2();
 	grid.save();
 
-	std::cout << "run time: " << (float)start/CLOCKS_PER_SEC << " seconds"  << std::endl;
+	// Record the end time
+    auto endTime = std::chrono::high_resolution_clock::now();
+    // Calculate the elapsed time
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    // Print the elapsed time
+    std::cout << "Run time: " << elapsedTime.count() / 1000.0 << " seconds" << std::endl;
 
 	return 0;
 }

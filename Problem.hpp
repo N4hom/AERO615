@@ -20,12 +20,10 @@ private:
 	// Matrix<double> _xPrev;
 	// Matrix<double> _yPrev;
 	double _alpha, _beta, _gamma;  // Coefficient storage. They could be a vector but for now I'll keep them Matrices. I was kidding, they're matrices
-	double _aP, _aEW, _aNS,_aC;   // Storage for linear system coefficient
 
 	double _a1, _a2, _a4;
-	double _tol = 1e-3;
+	double _tol = 1e-5;
 
-	Matrix<double> _A; // Problem matrix
 
 
 public:
