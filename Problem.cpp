@@ -12,6 +12,8 @@ _deltaCsi(_H/(N+1)),
 _deltaEta(_L/(M+1)),
 _x(N + 2 , M + 2),
 _y(N + 2 , M + 2),
+// _xPrev(_N+2,_M+2),
+// _yPrev(_N+2,_M+2),
 _alpha(0.0),
 _beta(0.0),
 _gamma(0.0),
@@ -122,13 +124,17 @@ void Problem::initialize()
 void Problem::solve2()
 {
 	unsigned int iter = 0;
-	double errX = _tol + 1;
-	double errY = _tol + 1;
-	double xPrev = 0.0;
-	double yPrev = 0.0;
+	Matrix<double> xPrev(_N+2,_M+2, 0);
+	Matrix<double> yPrev(_N+2,_M+2, 0);
+	double errX;
+	double errY;
 
-	while((errX > _tol && errY > _tol))
+	do
 	{	
+
+		double errMax_x = 0;
+		double errMax_y =  0;
+
 		
 		for (int i = 1; i < _N + 1; ++i)
 		{
@@ -143,9 +149,9 @@ void Problem::solve2()
 
 				_y(i,j) = _a1 * ( _y(i+1,j+1) - _y(i-1,j+1) - _y(i+1,j-1) + _y(i-1, j-1) ) + _a2 * (_y(i,j+1) + _y(i,j-1)) + _a4 * (_y(i+1,j) + _y(i-1,j));
 
-				errY = max( std::abs(_y(i,j) - yPrev) , errY);
-				yPrev = _y(i,j);
-				std::cout << _y(i,j) << std::endl;
+				
+				errMax_y = max( std::abs(_y(i,j) - yPrev(i,j)) , errMax_y);
+				yPrev(i,j) = _y(i,j);
 
 			}
 		}
@@ -163,16 +169,25 @@ void Problem::solve2()
 
 				_x(i,j) = _a1 * ( _x(i+1,j+1) - _x(i-1,j+1) - _x(i+1,j-1) + _x(i-1, j-1) ) + _a2 * (_x(i,j+1) + _x(i,j-1)) + _a4 * (_x(i+1,j) + _x(i-1,j));
 
-				errX = max( std::abs(_x(i,j) - xPrev) , errX);
-				xPrev = _x(i,j);
-				std::cout << _x(i,j) << std::endl;
+
+				errMax_x = max( std::abs(_x(i,j) - xPrev(i,j)) , errMax_x);
+				xPrev(i,j) = _x(i,j);
 			}
 		}
 
-		
+		errX = errMax_x;
+		errY = errMax_y;
+
+
+		std::cout << "-------------------------------------" << std::endl;
+		std::cout << "iter = " << iter << std::endl;
+		std::cout << "max error for x : " << errX << std::endl;
+		std::cout << "max error for y : " << errY << std::endl;
+		std::cout << "-------------------------------------" << std::endl;
+
 		++iter;
 
-		if (iter > 100)
+		if (iter > 1000)
 		{
 			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
 			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
@@ -180,11 +195,16 @@ void Problem::solve2()
 			std::cout << "Not converged !!!!!!!!!!!!!" << std::endl;
 			break;
 		}
-	}	
-	_x.print();
-	_y.print();
-}
+		// _x.print();
+		// _y.print();
 
+	}	
+	while (errX > _tol || errY > _tol);
+
+
+	
+	
+}
 
 
 
@@ -192,35 +212,35 @@ void Problem::solve2()
 
 void Problem::updateAlpha(unsigned int i, unsigned int j)
 {
-	std::cout << "Updating alpha " << std::endl;
+	//std::cout << "Updating alpha " << std::endl;
 	
 			
 	_alpha = 1.0/4.0/pow2(_deltaEta) *( pow2( _x(i,j + 1) - _x(i,j - 1)) + pow2(_y(i,j + 1) - _y(i,j-1)) );
 			
-	std::cout << "alpha updated" << std::endl;
+	//std::cout << "alpha updated" << std::endl;
 
 }
 
 void Problem::updateBeta(unsigned int i, unsigned int j)
 {
-std::cout << "Updating beta " << std::endl;
+	//std::cout << "Updating beta " << std::endl;
 	
 			
 	_beta = 1.0/4./_deltaEta/_deltaCsi*( (_x(i+1,j) - _x(i-1,j))*(_x(i,j+1) - _x(i, j -1)) + (_y(i+1,j) - _y(i-1,j))*(_y(i,j+1) - _y(i,j-1)) );	
 		
 	
-	std::cout << "Updated beta : " << std::endl;
+	//std::cout << "Updated beta : " << std::endl;
 
 }
 
 
 void Problem::updateGamma(unsigned int i, unsigned int j)
 {
-	std::cout << "Updating gamma " << std::endl;
+	//std::cout << "Updating gamma " << std::endl;
 	
 	_gamma = 1.0/4.0/pow2(_deltaCsi) *(pow2( _x(i + 1,j ) - _x(i - 1,j )) + pow2(_y(i + 1,j) - _y(i - 1,j)));	
 	
-	std::cout << "Updated gamma : " << std::endl;
+	//std::cout << "Updated gamma : " << std::endl;
 }
 
 
@@ -288,6 +308,17 @@ Vector<double> Problem::GaussSeidel(Matrix<double>& A, Vector<double>& b, double
 
 	return u;
 }
+
+// double calculateError()
+// {
+// 	for (int i = 1; i < _N - 1 ; ++i)
+// 	{
+// 		for (int j = 1; j < _M + 1; ++i)
+// 		{
+// 			_yPrev
+// 		}
+// 	}
+// }
 
 
 void Problem::save()

@@ -17,11 +17,13 @@ private:
 	unsigned int _Jmax;
 	double _deltaCsi, _deltaEta;
 	Matrix<double> _x, _y;  // Solution storage
+	// Matrix<double> _xPrev;
+	// Matrix<double> _yPrev;
 	double _alpha, _beta, _gamma;  // Coefficient storage. They could be a vector but for now I'll keep them Matrices. I was kidding, they're matrices
 	double _aP, _aEW, _aNS,_aC;   // Storage for linear system coefficient
 
 	double _a1, _a2, _a4;
-	double _tol = 1e-1;
+	double _tol = 1e-3;
 
 	Matrix<double> _A; // Problem matrix
 
@@ -34,6 +36,7 @@ public:
 	void updateAlpha(unsigned int i, unsigned int j);
 	void updateBeta(unsigned int i, unsigned int j);
 	void updateGamma(unsigned int i, unsigned int j);
+	double calculateError();
 	
 	// Create linear system in each row of the domain. To be used inside sweepRows() where a temporary matrix is created
 

@@ -14,7 +14,7 @@ int main(int argc, char const *argv[])
 	clock_t start;
 	start = clock();
 
-	Problem grid = Problem(10,10);
+	Problem grid = Problem(20,120);
 	grid.initialize();
 	
 	grid.solve2();
