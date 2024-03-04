@@ -11,5 +11,6 @@ x = np.transpose(x)
 y = np.transpose(y)
 
 plt.scatter(x,y)
+# plt.plot(y,x, '-' , color='b')
 plt.grid()
 plt.show()
