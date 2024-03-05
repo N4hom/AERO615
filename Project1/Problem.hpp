@@ -32,22 +32,28 @@ private:
 	// Tolerance for convergence criterion
 	double _tol = 1e-5;   
 
+
+
 public:
 	Problem(unsigned int, unsigned int);
 	~Problem();
-
 	void initialize();
 	void updateCoeff();
 	void updateAlpha(unsigned int i, unsigned int j);
 	void updateBeta(unsigned int i, unsigned int j);
 	void updateGamma(unsigned int i, unsigned int j);
+	double calculateError();
+	
 	void solve();
-	void save();
 
 	Matrix<double>& x(){ return _x;};
 	Matrix<double>& y(){ return _y;};
 
 	friend double pow2(double f);
+
+	void save();
+
+	
 };
 
 #endif 

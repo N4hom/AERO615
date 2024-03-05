@@ -13,6 +13,9 @@ print("M " , M)
 x = x/5
 y = y/1
 
+
+
+
 plt.plot(x,y , color='b')
 x = np.transpose(x)
 y = np.transpose(y)

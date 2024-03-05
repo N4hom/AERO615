@@ -2,10 +2,10 @@
 #include "Matrix.hpp"
 #include "Problem.hpp"
 #include <chrono>
-
 // Read input :
 //   - N
 //   - Boundary conditions
+// Assemble matrix
 // Solve
 // Output 
 
