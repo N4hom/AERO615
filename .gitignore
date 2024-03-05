@@ -1,7 +1,9 @@
 /doc
 main
+gridGen
 testMatrix
 linSystem.py
+Report/
 *.o
 x
 y

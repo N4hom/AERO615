@@ -1,6 +1,4 @@
-# Makefile for C++ project
-
-# Compiler
+# Compiler selection
 CXX = g++
 
 # Compiler flags

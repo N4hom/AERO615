@@ -12,6 +12,8 @@ _deltaCsi(_H/(N+1)),
 _deltaEta(_L/(M+1)),
 _x(N + 2 , M + 2),
 _y(N + 2 , M + 2),
+// _xPrev(_N+2,_M+2),
+// _yPrev(_N+2,_M+2),
 _alpha(0.0),
 _beta(0.0),
 _gamma(0.0)
@@ -84,12 +86,14 @@ void Problem::initialize()
 	{
 		_y(i,0) = _y(i-1,0) - _deltaCsi;
 		_y(i,_Jmax) = _y(i-1,_Jmax) - _deltaCsi;
+
 	}
 
 	std::cout << "Initial x " << std::endl;
 	_x.print();
 	std::cout << "Initial y " << std::endl;
 	_y.print();
+
 }
 
 void Problem::solve()
@@ -114,15 +118,16 @@ void Problem::solve()
 				updateAlpha(i,j);
 				updateBeta(i,j);
 				updateGamma(i,j);
-
 				_a1 = _beta/2/_deltaCsi/_deltaEta/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 				_a2 = - _gamma/pow2(_deltaEta)/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 				_a4 = - _alpha/pow2(_deltaCsi)/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 
 				_y(i,j) = _a1 * ( _y(i+1,j+1) - _y(i-1,j+1) - _y(i+1,j-1) + _y(i-1, j-1) ) + _a2 * (_y(i,j+1) + _y(i,j-1)) + _a4 * (_y(i+1,j) + _y(i-1,j));
+
 				
 				errMax_y = max( std::abs(_y(i,j) - yPrev(i,j)) , errMax_y);
 				yPrev(i,j) = _y(i,j);
+
 			}
 		}
 
@@ -134,12 +139,12 @@ void Problem::solve()
 				updateAlpha(i,j);
 				updateBeta(i,j);
 				updateGamma(i,j);
-
 				_a1 =  _beta/2/_deltaCsi/_deltaEta/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 				_a2 = -_gamma/pow2(_deltaEta)/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 				_a4 = -_alpha/pow2(_deltaCsi)/-2.0/(_alpha/pow2(_deltaCsi) + _gamma/pow2(_deltaEta));
 
 				_x(i,j) = _a1 * ( _x(i+1,j+1) - _x(i-1,j+1) - _x(i+1,j-1) + _x(i-1, j-1) ) + _a2 * (_x(i,j+1) + _x(i,j-1)) + _a4 * (_x(i+1,j) + _x(i-1,j));
+
 
 				errMax_x = max( std::abs(_x(i,j) - xPrev(i,j)) , errMax_x);
 				xPrev(i,j) = _x(i,j);
@@ -148,6 +153,7 @@ void Problem::solve()
 
 		errX = errMax_x;
 		errY = errMax_y;
+
 
 		std::cout << "-------------------------------------" << std::endl;
 		std::cout << "iter = " << iter << std::endl;
@@ -162,24 +168,41 @@ void Problem::solve()
 			std::cout << "Not converged !!!!!!!!!!!!!!!!!!!!!!" << std::endl;
 			break;
 		}
+		
+
 	}	
 	while (errX > _tol || errY > _tol);
+
+
+	
+	
 }
+
+
+
+
 
 void Problem::updateAlpha(unsigned int i, unsigned int j)
 {
-	//std::cout << "Updating alpha " << std::endl;			
+	//std::cout << "Updating alpha " << std::endl;
+	
+			
 	_alpha = 1.0/4.0/pow2(_deltaEta) *( pow2( _x(i,j + 1) - _x(i,j - 1)) + pow2(_y(i,j + 1) - _y(i,j-1)) );
+			
 	//std::cout << "alpha updated" << std::endl;
+
 }
 
 void Problem::updateBeta(unsigned int i, unsigned int j)
 {
 	//std::cout << "Updating beta " << std::endl;
-
+	
+			
 	_beta = 1.0/4./_deltaEta/_deltaCsi*( (_x(i+1,j) - _x(i-1,j))*(_x(i,j+1) - _x(i, j -1)) + (_y(i+1,j) - _y(i-1,j))*(_y(i,j+1) - _y(i,j-1)) );	
+		
 	
 	//std::cout << "Updated beta : " << std::endl;
+
 }
 
 
