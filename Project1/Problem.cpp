@@ -69,16 +69,8 @@ void Problem::initialize()
 
 		if (etaj > 2 && etaj < 3)
 		{
-			_y(0,j) = 1 - 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = -0.2*M_PI*sin(M_PI *(_x(0,j) - 2))
-			_y(_Imax,j) = 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = 0.2*M_PI*sin(M_PI *(_x(0,j) - 2))
-
-			// double fprime_0 = -0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
-			// double fprime_Imax = 0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
-
-			
-
-														// y(0,j) = y(0,j-1) + f'*(x(0,j+1) - x(0,j))
-														// y(_Imax,j) = y(_Imax,j-1) + f'*(x(_Imax,j+1) - x(_Imax,j))
+			_y(0,j) = 1 - 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = -0.2*M_PI*cos(M_PI *(_x(0,j) - 2))
+			_y(_Imax,j) = 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = 0.2*M_PI*cos(M_PI *(_x(0,j) - 2))
 
 		}
 		else
@@ -133,18 +125,6 @@ void Problem::solve()
 
 				_y(i,j) = _a1 * ( _y(i+1,j+1) - _y(i-1,j+1) - _y(i+1,j-1) + _y(i-1, j-1) ) + _a2 * (_y(i,j+1) + _y(i,j-1)) + _a4 * (_y(i+1,j) + _y(i-1,j));
 
-				double etaj = j * _deltaEta;
-
-
-				// if (etaj > 2 && etaj < 3)
-				// {
-				// 	// std::cout << "_x(1,j) - _x(0,j) " << _x(1,j) - _x(0,j) << std::endl;
-				// 	std::cout << "1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2))) " << 1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2))) << std::endl;
-					
-				// 	_y(1,j) = _y(0,j) - 1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(1,j) - _x(0,j)) ;
-				// 	_y(_Imax-1,j) = _y(_Imax,j) + 1/(0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(_Imax,j) - _x(_Imax-1,j)) ;
-
-				// }
 				
 				errMax_y = max( std::abs(_y(i,j) - yPrev(i,j)) , errMax_y);
 				yPrev(i,j) = _y(i,j);
@@ -173,8 +153,6 @@ void Problem::solve()
 
 				if (etaj > 2 && etaj < 3)
 				{
-					// std::cout << "_x(1,j) - _x(0,j) " << _x(1,j) - _x(0,j) << std::endl;
-					// std::cout << "_y(0,j) - 1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(1,j) - _x(0,j)) " << _y(0,j) - 1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(1,j) - _x(0,j)) << std::endl;
 					
 					_x(1,j) = _x(0,j) - (-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_y(1,j) - _y(0,j)) ;
 					_x(_Imax-1,j) = _x(_Imax,j) + (0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_y(_Imax,j) - _y(_Imax-1,j)) ;
