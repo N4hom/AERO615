@@ -72,6 +72,9 @@ void Problem::initialize()
 			_y(0,j) = 1 - 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = -0.2*M_PI*cos(M_PI *(_x(0,j) - 2))
 			_y(_Imax,j) = 0.2*sin(M_PI *(_x(0,j) - 2));  // f' = 0.2*M_PI*cos(M_PI *(_x(0,j) - 2))
 
+			_y(0,j) = 1 ; 
+			_y(_Imax,j) = 0;
+
 		}
 		else
 		{
@@ -148,17 +151,17 @@ void Problem::solve()
 
 				double etaj = j * _deltaEta;
 
-				double fprime_0 = -0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
-				double fprime_Imax = 0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
+				//double fprime_0 = -0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
+				//double fprime_Imax = 0.2*M_PI*sin(M_PI *(_x(0,j) - 2));
 
+				// Adjust boundary conditions for x
 				if (etaj > 2 && etaj < 3)
 				{
-					
+					// Top
 					_x(1,j) = _x(0,j) - (-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_y(1,j) - _y(0,j)) ;
-					_x(_Imax-1,j) = _x(_Imax,j) + (0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_y(_Imax,j) - _y(_Imax-1,j)) ;
 
-					_y(1,j) = _y(0,j) - 1/(-0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(1,j) - _x(0,j)) ;
-					_y(_Imax-1,j) = _y(_Imax,j) + 1/(0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_x(_Imax,j) - _x(_Imax-1,j)) ;
+					// Bottom
+					_x(_Imax-1,j) = _x(_Imax,j) + (0.2*M_PI*cos(M_PI *(_x(0,j) - 2)))*(_y(_Imax,j) - _y(_Imax-1,j)) ;
 
 				}
 				
