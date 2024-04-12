@@ -17,10 +17,10 @@ public:
 	~Variable();
 
 
-	double interpolateLeft  (unsigned int i, unsigned int j) const;
-	double interpolateRight (unsigned int i, unsigned int j) const;
-	double interpolateTop   (unsigned int i, unsigned int j) const;
-	double interpolateBottom(unsigned int i, unsigned int j) const;
+	double interpolateLeft  (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateRight (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateTop   (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateBottom(Matrix<double>& flux , unsigned int i, unsigned int j) const;
 
 	double flux(Matrix<double>& velocity , unsigned int i, unsigned int j);
 
@@ -69,32 +69,32 @@ double& Variable::operator()(unsigned int i, unsigned int j)
    return phi_(i,j);
 }
 
-double Variable::interpolateLeft(unsigned int i, unsigned int j) const
+double Variable::interpolateLeft(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
-	return 0.5 * (phi_(ic     , jc - 1) + phi_(ic , jc)) ;
+	return 0.5 * (flux(ic     , jc - 1) + flux(ic , jc)) ;
 }
 
-double Variable::interpolateRight(unsigned int i, unsigned int j) const
+double Variable::interpolateRight(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
-	return 0.5 * (phi_(ic     , jc + 1) + phi_(ic , jc)) ;
+	return 0.5 * (flux(ic     , jc + 1) + flux(ic , jc)) ;
 }
 
-double Variable::interpolateTop(unsigned int i, unsigned int j)	const
+double Variable::interpolateTop(Matrix<double>& flux , unsigned int i, unsigned int j)	const
 {
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
-	return 0.5 * (phi_(ic + 1  , jc   ) + phi_(ic , jc)) ;
+	return 0.5 * (flux(ic + 1  , jc   ) + flux(ic , jc)) ;
 }
 
-double Variable::interpolateBottom(unsigned int i, unsigned int j) const
+double Variable::interpolateBottom(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
-	return 0.5 * (phi_(ic - 1  , jc   ) + phi_(ic , jc)) ;
+	return 0.5 * (flux(ic - 1  , jc   ) + flux(ic , jc)) ;
 }
 
 double Variable::flux(Matrix<double>& velocity , unsigned int i , unsigned int j)
