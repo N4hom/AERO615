@@ -274,7 +274,7 @@ area_(N+3,M+3)
 
 			Aij = 0.5 * ( (x_(i + 1 , j + 1) - x_(i  , j )) * (y_(i  , j + 1) - y_(i + 1, j )) 
 				        - (y_(i + 1 , j + 1) - y_(i  , j )) * (x_(i  , j + 1) - x_(i + 1, j )) );
-			std::cout << "Aij " << Aij << std::endl;
+			
 
 			area_(ic , jc) = Aij;
 

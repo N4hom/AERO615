@@ -145,7 +145,7 @@ Matrix<T> operator+(const Matrix<T>& other) const {
 }
 
   // Print matrix
-  void print()
+  void print() const
   {
     for (unsigned int i = 0; i < N; ++i)
     {
