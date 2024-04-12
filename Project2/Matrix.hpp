@@ -31,12 +31,12 @@ public:
         {}
 
 
-  unsigned int cols()
+  const unsigned int cols()
   {
      return M;
   }
 
-  unsigned int rows()
+  const unsigned int rows()
   {
      return N;
   }
@@ -112,6 +112,38 @@ public:
       A[i][j] = v(j);
   }
 
+  // Assignment operator to copy values from another matrix
+  Matrix<T>& operator=(const Matrix<T>& other) {
+    if (this != &other) { // Check for self-assignment
+        // Resize if necessary
+        // Copy values
+        for (unsigned int i = 0; i < N; ++i) {
+            for (unsigned int j = 0; j < M; ++j) {
+                A[i][j] = other(i, j);
+            }
+        }
+    }
+    return *this;
+}
+
+// Addition operator to add two matrices
+Matrix<T> operator+(const Matrix<T>& other) const {
+    // Check if matrices have the same dimensions
+    assert(N == other.rows() && M == other.cols());
+    
+    // Create a new matrix to store the result
+    Matrix<T> result(N, M);
+    
+    // Perform element-wise addition
+    for (unsigned int i = 0; i < N; ++i) {
+        for (unsigned int j = 0; j < M; ++j) {
+            result(i, j) = (*this)(i, j) + other(i, j);
+        }
+    }
+    
+    return result;
+}
+
   // Print matrix
   void print()
   {
@@ -125,7 +157,8 @@ public:
       std::cout << std::endl;
     }
 
-    std::cout << std::endl;
+    std::cout <<"\n" << std::endl;
+    //std::cout << std::endl;
   }
 
   // Saves the matrix in csv format

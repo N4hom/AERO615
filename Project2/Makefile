@@ -5,10 +5,10 @@ CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra
 
 # Source files
-SRCS = main.cpp Problem.cpp 
+SRCS = main.cpp 
 
 # Header files
-HDRS = Problem.hpp Matrix.hpp Vector.hpp
+HDRS = Mesh.hpp Matrix.hpp Vector.hpp
 
 # Object files
 OBJS = $(SRCS:.cpp=.o)

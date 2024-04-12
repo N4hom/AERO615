@@ -1,6 +1,8 @@
 #include <iostream>
 #include "Matrix.hpp"
 #include "Mesh.hpp"
+#include "Problem.hpp"
+#include "debug.hpp"
 #include <chrono>
 #include <fstream>
 
@@ -10,7 +12,6 @@
 // Assemble matrix
 // Solve
 // Output 
-
 
 
 int main(int argc, char const *argv[])
@@ -42,13 +43,18 @@ int main(int argc, char const *argv[])
 
     // A.print();
 
-    Mesh mesh(5,7, "x" , "y");
+    Mesh mesh(4,5, "x" , "y");
 
     mesh.x().print();
     mesh.y().print();
 
     mesh.xC().save("xc");
     mesh.yC().save("yc");
+
+    Problem problem(4,5, "x" , "y");
+
+    //problem.solve();
+
 
 
 

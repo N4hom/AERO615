@@ -1,3 +1,6 @@
+#ifndef MESH_
+#define MESH_
+
 #include "Matrix.hpp"
 #include "Vector.hpp"
 
@@ -11,31 +14,8 @@ std::vector<double> split(const std::string &s, char delimiter) {
     return tokens;
 }
 
-struct Face
-{
-	double delta_ = 0;
-	
-}; 
-
-class Cell
-{
-	double xc_ = 0;
-	double yc_ = 0;
-	const unsigned int dim_;
-
-	Vector<double> xFaces_;
-	Vector<double> yFaces_;
-public:
-	Cell();
-	~Cell(){};
-	
-};
-
-Cell::Cell():
-dim_(2),
-xFaces_(dim_),
-yFaces_(dim_)
-{}
+// Forward declaration
+class Problem;
 
 class Mesh
 {
@@ -58,7 +38,20 @@ private:
 	unsigned int Nc_;
 	unsigned int Mc_;
 
+	Matrix<double> xFacesLeft_;
+	Matrix<double> xFacesRight_;
+	Matrix<double> xFacesTop_;
+	Matrix<double> xFacesBottom_;
 
+	Matrix<double> yFacesLeft_;
+	Matrix<double> yFacesRight_;
+	Matrix<double> yFacesTop_;
+	Matrix<double> yFacesBottom_;
+
+	Matrix<double> area_;
+
+
+	friend class Problem;
 public:
 	Mesh(unsigned int N, unsigned int M, std::string filename_x , std::string filename_y);
 	~Mesh();
@@ -70,136 +63,227 @@ public:
 	Matrix<double>& y();
 	Matrix<double>& xC();
 	Matrix<double>& yC();
+	Matrix<double> area();
+
 };
 
+//
+//             ____ ____ ____ ____
+//            |	   |	|	 |	  |
+//            |____|____|____|____|
+//            |    |    |    |    |
+//            |____|____|____|____|
+//            |    |    |    |    |
+//            |____|____|____|____|
+//
+//
+//
 Mesh::Mesh(unsigned int N, unsigned int M, std::string filename_x, std::string filename_y):
 x_(N,M),
 y_(N,M),
-xC_(N+1,M+1),
-yC_(N+1,M+1),
+xC_(N+3,M+3),   // NUMBER OF CELLS = NUMBER OF NODES - 1 + NUMBER OF GHOST CELLS(4)
+yC_(N+3,M+3),
 Imax_(N-1),
 Jmax_(M-1),
-Icmax_(N),
-Jcmax_(M),
+Icmax_(N+2),   // CELL INDEX MAX = NUMBER OF CELLS - 1
+Jcmax_(M+2),
 N_(N),
 M_(M),
-Nc_(N + 1),
-Mc_(M + 1)
+Nc_(N - 1),
+Mc_(M - 1),
+xFacesLeft_(Nc_,Mc_),
+xFacesRight_(Nc_,Mc_),
+xFacesTop_(Nc_,Mc_),
+xFacesBottom_(Nc_,Mc_),
+yFacesLeft_(Nc_,Mc_),
+yFacesRight_(Nc_,Mc_),
+yFacesTop_(Nc_,Mc_),
+yFacesBottom_(Nc_,Mc_),
+area_(N+3,M+3)
 {
 	read(filename_x, x_);
 	read(filename_y, y_);
 
-	for (unsigned int i = 0; i < x_.rows(); ++i)
+	for (unsigned int i = 0; i < Imax_ ; ++i)
 	{
-		for (unsigned int j = 0; j < x_.cols(); ++j)
+		for (unsigned int j = 0; j < Jmax_ ; ++j)
 		{
-			if (j > 0)
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			xC_(ic,jc) = 0.25*(x_(i,j) + x_(i+1,j) + x_(i+1,j+1) + x_(i,j+1));
+
+			if (j == 0)
 			{
-				/* code */
-				xC_(i,j) = 0.5*(x_(i,j) + x_(i,j-1));
+				xC_(ic,1) = - xC_(ic,2);
+				xC_(ic,0) = - 2*xC_(ic,2);
 			}
 
-			// lower boundary
-			if (i == x_.rows() - 1)
+			if (i == 0)
 			{
-				xC_(i + 1 , j) = xC_(i,j);
+				xC_(1,jc) = xC_(2,jc);
+				xC_(0,jc) = xC_(2,jc);
 			}
 
-			// right boundary
-			if (j == x_.cols() - 1)
+			if (i == Imax_ - 1)
 			{
-				xC_(i,j+1) = x_(i,j);
-
-				// bottom-right corner
-				if (i == x_.rows() - 1)
-				{
-					xC_(i+1,j+1) = x_(i,j);
-				}
+				xC_(Icmax_ - 1,jc) = xC_(Icmax_ - 2, jc); 
+				xC_(Icmax_ ,jc) = xC_(Icmax_ - 1, jc); 
 			}
 
-		}
+			if (j == Jmax_ - 1)
+			{
+				double deltaX = xC_(ic, jc ) - xC_(ic,jc-1); 
+
+				xC_(ic,Jcmax_ - 1) = xC_(ic, Jcmax_-2) + deltaX;
+				xC_(ic,Jcmax_    ) = xC_(ic, Jcmax_-1) + deltaX; 
+			}
+
+			
+				// double deltaX = xC_(ic , Jcmax_ - 3) - xC_(ic , Jcmax_ - 2);
+				// xC_(ic, Jcmax_ - 1) = xC_(ic, Jcmax_ - 2);
+				// xC_(ic, Jcmax_) = xC_(ic, Jcmax_ - 1) ;
+
+			// std::cout << "x(i,j) " << x_(i,j) << endl;
+			// std::cout << "xc(i,j) " << xC_(ic,jc) << endl;
+		}		
 	}
 
 	xC_.print();
 
 
 
-	for (unsigned int i = 0; i < N + 1; ++i)
+	for (unsigned int i = 0; i < Imax_; ++i)
 	{
-		for (int j = 0; j < M + 1; ++j)
+		for (int j = 0; j < Jmax_; ++j)
 		{
-			if (i > 0 && j > 0 && i < Icmax_ && j < Jcmax_)
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			yC_(ic,jc) = 0.25*(y_(i,j) + y_(i+1,j) + y_(i+1,j+1) + y_(i,j+1));
+
+			if (j == 0)
 			{
-				yC_(i,j) = 0.25*(y_(i-1,j-1) + y_(i,j-1) + y_(i-1,j) + y_(i,j));
-				if (j == 0)
-				{
-					yC_(i,j) = 0.5*(y_(i+1,j) + y_(i,j));
-				}			
+				yC_(ic,1) = yC_(ic,2);
+				yC_(ic,0) = yC_(ic,1);
 			}
-			else if (i == 0 )
+
+			if (i == 0)
 			{
-				if (j == 0)
-				{
-					yC_(i,j) = y_(i,j);
-				}
-				else if (j == Jcmax_)
-				{
-					yC_(i,j) = y_(i,Jmax_);
-				}
-				else
-				{
-					yC_(i,j) = 0.5*(y_(i,j) + y_(i,j-1));
-				}
+				double deltaY = yC_(3,jc) - yC_(2,jc);
+				
+
+				yC_(1 , jc) = yC_(2,jc) - deltaY;
+				yC_(0 , jc) = yC_(1,jc) - deltaY;
 			}
-			else if (i == Icmax_)
+
+			if (i == Imax_ - 1)
 			{
-				if (j == 0)
-				{
-					yC_(i,j) = y_(Imax_,j);
-				}
-				else if (j == Jcmax_)
-				{
-					yC_(i,j) = y_(Imax_,Jmax_);
-				}
-				else
-				{
-					yC_(i,j) = 0.5*(y_(Imax_,j) + y_(Imax_,j-1));
-				}
+				yC_(Icmax_ - 1,jc) = -yC_(Icmax_ - 2, jc); 
+				yC_(Icmax_,jc) = -2*yC_(Icmax_ - 2, jc); 
 			}
-			else if (j == 0)
+
+			if (j == Jmax_ - 1)
 			{
-				if (i == 0)
-				{
-					// Already set
-				}
-				else if (i == Icmax_)
-				{
-					yC_(i,j) = y_(Imax_,j);
-				}
-				else
-				{
-					yC_(i,j) = 0.5*(y_(i,0) + y_(i-1,0));
-				}
+
+				yC_(ic,Jcmax_ - 1) = yC_(ic, Jcmax_-2) ;
+				yC_(ic,Jcmax_    ) = yC_(ic, Jcmax_-1) ; 
 			}
-			else if (j == Jcmax_)
-			{
-				if (i == Icmax_)
-				{
-					// Already set
-				}
-				else if (i == Icmax_)
-				{
-					//
-				}
-				else
-				{
-					yC_(i,j) = 0.5*(y_(i,0) + y_(i-1,0));
-				}
-			}
+
+
+			
 		}
 	}
 
-	yC_.print();
+	for (unsigned int i = 0; i < Imax_; ++i)
+	{
+		for (unsigned int j = 0; j < Jmax_; ++j)
+		{
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+			if (i == 0)
+			{
+				double deltaY = yC_(2,jc) - yC_(3,jc);
+	
+				yC_(1 , jc) = yC_(2,jc) + deltaY;
+				yC_(0 , jc) = yC_(1,jc) + deltaY;
+
+
+			}
+		}
+
+		yC_.print();
+	}
+
+	// Define faces
+
+	// Define left and right faces predominantly oriented in the x-direction
+	for (unsigned int i = 0; i < Nc_ ; ++i)
+	{
+		for (unsigned int j = 0; j < Mc_ ; ++j)
+		{
+			xFacesLeft_(i,j)  = y_(i     , j   ) - y_(i+1   , j   );
+			xFacesRight_(i,j) = y_(i     , j+1 ) - y_(i+1   , j+1 );
+			xFacesTop_(i,j)   = y_(i     , j+1 ) - y_(i     , j   );
+			xFacesTop_(i,j)   = y_(i + 1 , j+1 ) - y_(i + 1 , j   );
+
+		}	
+	}
+	
+	// Define left and right faces predominantly oriented in the y-direction	
+	for (unsigned int i = 0; i < Imax_ ; ++i)
+	{
+		for (unsigned int j = 0; j < Jmax_ ; ++j)
+		{
+			
+			yFacesTop_(i,j)  = x_(i  , j+1  ) - x_(i    , j  );
+			yFacesBottom_(i,j) = x_(i+1 , j+1 ) - x_(i+1     , j );
+			yFacesLeft_(i,j)  = x_(i     , j   ) - x_(i+1   , j   );
+			yFacesRight_(i,j) = x_(i     , j+1 ) - x_(i+1   , j+1 );
+
+		}	
+	}		
+
+	std::cout << "xFacesLeft_ " << "\n" << std::endl;
+	xFacesLeft_.print();
+	std::cout << "xFacesRight_ " << "\n" << std::endl;
+	xFacesRight_.print();
+	std::cout << "xFacesTop_ " << "\n" << std::endl;
+	xFacesTop_.print();
+	std::cout << "xFacesBottom_ " << "\n" << std::endl;
+	xFacesBottom_.print();
+
+	std::cout << "yFacesLeft_ " << "\n" << std::endl;
+	yFacesLeft_.print();
+	std::cout << "yFacesRight_ " << "\n" << std::endl;
+	yFacesRight_.print();
+	std::cout << "yFacesTop_ " << "\n" << std::endl;
+	yFacesTop_.print();
+	std::cout << "yFacesBottom_ " << "\n" << std::endl;
+	yFacesBottom_.print();
+
+	double areaTot = 0;
+
+	for (int i = 0; i < Nc_ ; ++i)
+	{
+		for (int j = 0; j < Mc_ ; ++j)
+		{
+			int ic = i + 2;
+			int jc = j + 2;
+			double Aij;
+
+			Aij = 0.5 * ( (x_(i + 1 , j + 1) - x_(i  , j )) * (y_(i  , j + 1) - y_(i + 1, j )) 
+				        - (y_(i + 1 , j + 1) - y_(i  , j )) * (x_(i  , j + 1) - x_(i + 1, j )) );
+			std::cout << "Aij " << Aij << std::endl;
+
+			area_(ic , jc) = Aij;
+
+			areaTot += Aij;
+		}
+	}
+
+	
+	area_.print();
 }
 
 Mesh::~Mesh(){}
@@ -230,6 +314,8 @@ bool Mesh::read(std::string filename, Matrix<double>& xy)
     return true;
 }
 
+
+
 Matrix<double>& Mesh::x()
 {
 	return x_;
@@ -249,3 +335,5 @@ Matrix<double>& Mesh::yC()
 {
 	return yC_;
 }
+
+#endif
