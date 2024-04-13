@@ -53,7 +53,7 @@ int main(int argc, char const *argv[])
 
     Problem problem(4,5, "x" , "y");
 
-    //problem.solve();
+    problem.solve();
 
 
 

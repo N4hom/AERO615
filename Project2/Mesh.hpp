@@ -16,6 +16,7 @@ std::vector<double> split(const std::string &s, char delimiter) {
 
 // Forward declaration
 class Problem;
+class Variable;
 
 class Mesh
 {
@@ -52,6 +53,7 @@ private:
 
 
 	friend class Problem;
+	friend class Variable;
 public:
 	Mesh(unsigned int N, unsigned int M, std::string filename_x , std::string filename_y);
 	~Mesh();
