@@ -1,9 +1,11 @@
 #include "Matrix.hpp"
 #include "Vector.hpp"
+#include "debug.hpp"
+#include <algorithm>
 
 class Variable
 {
-
+	std::string 	 name_;
 	unsigned int    Nci_;
 	unsigned int    Mci_;
 	unsigned int    Nc_;
@@ -13,12 +15,13 @@ class Variable
 	Matrix<double>  flux_g_;
 	Matrix<double>  R_;
 	Matrix<double>  D_;
-	Mesh& 			mesh;
+	Mesh& 			mesh_;
 	Matrix<double>& p_;
+	Matrix<double>& c_;
 	Matrix<double>& U_, V_;
 
 public:
-	Variable(unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& p);
+	Variable(std::string name, unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p);
 	~Variable();
 
 
@@ -36,7 +39,7 @@ public:
 
 	double computeResidualij(unsigned int i , unsigned int j                    );
 	void computeResidual();
-	double computeDissipationij(unsigned int i , unsigned int j                    );
+	void computeDissipation();
 	double Rij(unsigned int i, unsigned int j) const{return R_(i,j);};
 	double Dij(unsigned int i, unsigned int j) const{return D_(i,j);};
 	Matrix<double>& R(){return R_;};
@@ -54,7 +57,7 @@ public:
 	// Non const access for getting the ith, jth element
 	double &operator()(unsigned int i, unsigned int j);
 
-	void print() const{ phi_.print();};
+	void print() const{ std::cout << name_ << std::endl; phi_.print();};
 
 	Matrix<double>& phi(){return phi_;}
 	Matrix<double>& flux_f(){return flux_f_;}
@@ -63,7 +66,8 @@ public:
 };
 
 // input is the number of total cell. Easier to set the Variable input using the size of the matrix phi
-Variable::Variable(unsigned int N, unsigned int M , Mesh& mesh , Matrix<double>& U , Matrix<double>& V , Matrix<double>& p):
+Variable::Variable(std::string name, unsigned int N, unsigned int M , Mesh& mesh , Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p):
+name_(name),
 Nci_(N - 4),
 Mci_(M - 4),
 Nc_(N),
@@ -73,8 +77,9 @@ flux_f_(Nc_ , Mc_),
 flux_g_(Nc_ , Mc_),
 R_(Nci_ , Mci_),
 D_(Nci_ , Mci_),
-mesh(mesh),
+mesh_(mesh),
 p_(p),
+c_(c),
 U_(U),
 V_(V)
 {
@@ -120,6 +125,8 @@ double Variable::flux(Matrix<double>& velocity , unsigned int i , unsigned int j
 {
 	return phi_(i , j) * velocity(i , j);	
 }
+
+
 
 void Variable::computeFlux_f(Matrix<double>& velocity)
 {
@@ -173,15 +180,15 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
 	
-	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh.yFacesLeft_(i , j);  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
-	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh.yFacesRight_(i , j);
-	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh.yFacesTop_(i , j);;
-	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh_.yFacesLeft_(i , j);  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
+	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh_.yFacesRight_(i , j);
+	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh_.yFacesTop_(i , j);;
+	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh_.yFacesBottom_(i , j);;
 
-	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh.yFacesLeft_(i , j);;
-	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh.yFacesRight_(i , j);;
-	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh.yFacesTop_(i , j);;
-	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh_.yFacesLeft_(i , j);;
+	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh_.yFacesRight_(i , j);;
+	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh_.yFacesTop_(i , j);;
+	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFacesBottom_(i , j);;
 
 
 	return (RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom);
@@ -190,6 +197,10 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 
 void Variable::computeResidual()
 {	
+	if (DEBUG)
+	{
+		std::cout << "Calculating residual " << endl;
+	}
 	// Residual has the same size as the internal domain, so the loop is over Nci_,Mci_
 	for (unsigned int i = 0; i < Nci_; ++i)
 	{
@@ -200,28 +211,142 @@ void Variable::computeResidual()
 		}
 	}
 
+	std::cout << "Residual \n" << std::endl;
+	R_.print();
 	
 }
 
-// double Variable::computeDissipationij(unsigned int i, unsigned int j)
-// {
-// 	unsigned int ic = i + 2;
-// 	unsigned int jc = j + 2;
+void Variable::computeDissipation()
+{
+	if (DEBUG)
+	{
+		std::cout << "Calculating dissipation " << endl;
+	}
+	// const unsigned int Nc = mesh_.Nc_;
+	// const unsigned int Mc = mesh_.Mc_;
+
+	const double nu2 = 0.5;
+	const double nu4 = 0.005;
+
+	// The face area must be corrected 
+	Matrix<double> yFacesTop    = mesh_.yFacesTop_;
+	Matrix<double> yFacesBottom = mesh_.yFacesBottom_;
+
+	Matrix<double> xFacesRight  = mesh_.xFacesRight_;
+	Matrix<double> xFacesLeft   = mesh_.xFacesLeft_;
+
+	Matrix<double> sCsi2(Nc_ , Mc_ );
+	Matrix<double> sEta2(Nc_ , Mc_ );
+
+	Matrix<double> lambdaCsi(Nc_ , Mc_ );
+	Matrix<double> lambdaEta(Nc_ , Mc_ );
+
 	
-// 	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh.yFacesLeft_(i , j);  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
-// 	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh.yFacesRight_(i , j);
-// 	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh.yFacesTop_(i , j);;
-// 	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+	// Calculate the second order switches
+	if (DEBUG)
+	{
+		std::cout << "Calculating second order switches\n" << std::endl;
+	}
 
-// 	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh.yFacesLeft_(i , j);;
-// 	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh.yFacesRight_(i , j);;
-// 	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh.yFacesTop_(i , j);;
-// 	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+	for (unsigned int i = 0; i < Nci_; ++i)
+	{
+
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
 
 
-// 	return (RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom);
+			// I should be calculating the switch separately at i,j and i+1,j and then take the average
+			double sCsi2_ij_num , sCsi2_ij_den;
+			double sEta2_ij_num , sEta2_ij_den;
+
+			// delta2csi already adjust the indexes to access the fields
+			sCsi2_ij_num = delta2Csi(p_ , i , j);
+			sCsi2_ij_den = p_(ic + 1, jc) + 2*p_(ic , jc) + p_(ic - 1, jc);
+			double sCsi2_ij = nu2 * sCsi2_ij_num/sCsi2_ij_den;
+
+
+			sEta2_ij_num = delta2Eta(p_ , i , j);
+			sEta2_ij_den = p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1);
+			double sEta2_ij = nu2 * sEta2_ij_num/sEta2_ij_den;
+
+			sCsi2(ic , jc) = sCsi2_ij; 
+			sEta2(ic , jc) = sEta2_ij; 
+
+
+			lambdaCsi(ic , jc) = std::abs(V_(ic , jc)) + c_(ic , jc);
+			lambdaEta(ic , jc) = std::abs(U_(ic , jc)) + c_(ic , jc);
+		}
+	}
+
+
+	if (DEBUG)
+	{
+		std::cout << "Calculating fourth order switches and dissipation term\n" << std::endl;
+	}
+
+	for (unsigned int i = 0; i < Nci_; ++i)
+	{
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			double sCsi2Top        = interpolateTop(sCsi2 , ic , jc );
+			double sCsi2Bottom     = interpolateBottom(sCsi2 , ic , jc );
+			double sCsi2Right      = interpolateRight(sCsi2 , ic , jc );
+			double sCsi2Left       = interpolateLeft(sCsi2 , ic , jc );
+
+			double sEta2Top        = interpolateTop(sEta2 , ic , jc );
+			double sEta2Bottom     = interpolateBottom(sEta2 , ic , jc );
+			double sEta2Right      = interpolateRight(sEta2 , ic , jc );
+			double sEta2Left       = interpolateLeft(sEta2 , ic , jc );
+
+			double sCsi4Top        = std::max(0. , nu4 - sCsi2Top);
+			double sCsi4Bottom     = std::max(0. , nu4 - sCsi2Bottom);
+			double sCsi4Right      = std::max(0. , nu4 - sCsi2Right);
+			double sCsi4Left       = std::max(0. , nu4 - sCsi2Left);
+
+			double sEta4Top        = std::max(0. , nu4 - sEta2Top);
+			double sEta4Bottom     = std::max(0. , nu4 - sEta2Bottom);
+			double sEta4Right      = std::max(0. , nu4 - sEta2Right);
+			double sEta4Left       = std::max(0. , nu4 - sCsi2Left);
+
+			double lambdaCsiTop    = interpolateTop(lambdaCsi , ic , jc );
+			double lambdaCsiBottom = interpolateBottom(lambdaCsi , ic , jc );
+			double lambdaCsiRight  = interpolateRight(lambdaCsi , ic , jc );
+			double lambdaCsiLeft   = interpolateLeft(lambdaCsi , ic , jc );
+
+			double lambdaEtaTop    = interpolateTop(lambdaEta , ic , jc );
+			double lambdaEtaBottom = interpolateBottom(lambdaEta , ic , jc );
+			double lambdaEtaRight  = interpolateRight(lambdaEta , ic , jc );
+			double lambdaEtaLeft   = interpolateLeft(lambdaEta , ic , jc );
+
+			double deltaCsi2Var = sCsi2Top * yFacesTop(i , j) * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) 
+								 - sCsi2Bottom * yFacesBottom(i , j) * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc));
 	
-// }
+			double deltaEta2Var =  sEta2Right * xFacesRight(i , j) * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) 
+							 	 - sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1));
+
+			double deltaCsi4Var = sCsi4Top * yFacesTop(i , j) * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) ) 
+								 - sCsi4Bottom * yFacesBottom(i , j) * lambdaCsiBottom * ( delta2Eta(phi_ , i , j) - delta2Eta(phi_ , i - 1, j) );
+
+			double deltaEta4Var = sEta4Top * yFacesTop(i , j) * lambdaEtaTop * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) ) 
+								 - sEta4Bottom * yFacesBottom(i , j) * lambdaEtaBottom * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) );
+
+			D_(i , j)  = (deltaCsi2Var + deltaEta2Var) - (deltaCsi4Var + deltaEta4Var);
+			
+		
+		}
+	}
+
+	std::cout << "Dissipation \n" << std::endl;
+	D_.print(); 
+
+	
+}
+
 
 
 double Variable::deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
@@ -239,7 +364,7 @@ double Variable::deltaEta(const Matrix<double>& matrix, unsigned int i, unsigned
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
 	double matrixRight = 0.5 * (matrix(ic , jc) + matrix(ic , jc + 1));
-	double matrixLeft = 0.5 * (matrix(ic , jc) + matrix(ic , jc - 1));
+	double matrixLeft  = 0.5 * (matrix(ic , jc) + matrix(ic , jc - 1));
 
 	return matrixRight - matrixLeft;
 }
