@@ -248,7 +248,7 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 300;
+	unsigned int N = 800;
 	unsigned int iter = 0;
 
 
