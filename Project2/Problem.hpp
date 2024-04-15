@@ -12,8 +12,8 @@ public:
 	unsigned int Nci_ , Mci_;
 	unsigned int Nc_ , Mc_;
 
-	Variable        rho_, rhoU_,rhoV_, rhoE_;  // State vector components
 	Matrix<double> U_, V_ , p_, T_ , Umag_;							   // Primitive variables 
+	Variable        rho_, rhoU_,rhoV_, rhoE_;  // State vector components
 	Matrix<double> c_;
 	Matrix<double> M_;
 	Matrix<double> Riem1_;
@@ -72,10 +72,6 @@ Nci_(N - 1),
 Mci_(M - 1),
 Nc_(Nci_ + 4),
 Mc_(Mci_ + 4),
-rho_(Nc_ , Mc_ , mesh_),  // N - 1 being the number of internal cells
-rhoU_(Nc_ , Mc_, mesh_),
-rhoV_(Nc_ , Mc_, mesh_),
-rhoE_(Nc_ , Mc_, mesh_),
 U_(Nc_ , Mc_),
 V_(Nc_ , Mc_),
 p_(Nc_ , Mc_),
@@ -84,7 +80,11 @@ c_(Nc_ , Mc_),
 M_(Nc_ , Mc_),
 Umag_(Nc_ , Mc_),
 Riem1_(Nc_ , Mc_),
-Riem2_(Nc_ , Mc_)
+Riem2_(Nc_ , Mc_),
+rho_(Nc_ , Mc_ , mesh_, U_, V_, p_),  // N - 1 being the number of internal cells
+rhoU_(Nc_ , Mc_, mesh_, U_, V_, p_),
+rhoV_(Nc_ , Mc_, mesh_, U_, V_, p_),
+rhoE_(Nc_ , Mc_, mesh_, U_, V_, p_)
 {
 
 	initialize();

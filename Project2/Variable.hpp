@@ -14,9 +14,11 @@ class Variable
 	Matrix<double>  R_;
 	Matrix<double>  D_;
 	Mesh& 			mesh;
+	Matrix<double>& p_;
+	Matrix<double>& U_, V_;
 
 public:
-	Variable(unsigned int N , unsigned int M , Mesh& mesh);
+	Variable(unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& p);
 	~Variable();
 
 
@@ -34,9 +36,16 @@ public:
 
 	double computeResidualij(unsigned int i , unsigned int j                    );
 	void computeResidual();
+	double computeDissipationij(unsigned int i , unsigned int j                    );
 	double Rij(unsigned int i, unsigned int j) const{return R_(i,j);};
+	double Dij(unsigned int i, unsigned int j) const{return D_(i,j);};
 	Matrix<double>& R(){return R_;};
 	Matrix<double>& D(){return D_;};
+
+	double deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
+	double deltaEta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
+	double delta2Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
+	double delta2Eta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
 
 
 	// Const access to the ith,jth element  (read only)
@@ -54,7 +63,7 @@ public:
 };
 
 // input is the number of total cell. Easier to set the Variable input using the size of the matrix phi
-Variable::Variable(unsigned int N, unsigned int M , Mesh& mesh):
+Variable::Variable(unsigned int N, unsigned int M , Mesh& mesh , Matrix<double>& U , Matrix<double>& V , Matrix<double>& p):
 Nci_(N - 4),
 Mci_(M - 4),
 Nc_(N),
@@ -64,7 +73,10 @@ flux_f_(Nc_ , Mc_),
 flux_g_(Nc_ , Mc_),
 R_(Nci_ , Mci_),
 D_(Nci_ , Mci_),
-mesh(mesh)
+mesh(mesh),
+p_(p),
+U_(U),
+V_(V)
 {
 	std::cout << "R " << std::endl;
 	R_.print();
@@ -191,3 +203,59 @@ void Variable::computeResidual()
 	
 }
 
+// double Variable::computeDissipationij(unsigned int i, unsigned int j)
+// {
+// 	unsigned int ic = i + 2;
+// 	unsigned int jc = j + 2;
+	
+// 	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh.yFacesLeft_(i , j);  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
+// 	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh.yFacesRight_(i , j);
+// 	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh.yFacesTop_(i , j);;
+// 	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+
+// 	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh.yFacesLeft_(i , j);;
+// 	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh.yFacesRight_(i , j);;
+// 	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh.yFacesTop_(i , j);;
+// 	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh.yFacesBottom_(i , j);;
+
+
+// 	return (RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom);
+	
+// }
+
+
+double Variable::deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
+{
+	unsigned int ic = i + 2;
+	unsigned int jc = j + 2;
+	double matrixTop = 0.5 * (matrix(ic , jc) + matrix(ic + 1, jc));
+	double matrixBottom = 0.5 * (matrix(ic , jc) + matrix(ic - 1, jc));
+
+	return matrixTop - matrixBottom;
+}
+
+double Variable::deltaEta(const Matrix<double>& matrix, unsigned int i, unsigned int j)
+{
+	unsigned int ic = i + 2;
+	unsigned int jc = j + 2;
+	double matrixRight = 0.5 * (matrix(ic , jc) + matrix(ic , jc + 1));
+	double matrixLeft = 0.5 * (matrix(ic , jc) + matrix(ic , jc - 1));
+
+	return matrixRight - matrixLeft;
+}
+
+double Variable::delta2Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
+{
+	unsigned int ic = i + 2;
+	unsigned int jc = j + 2;
+	
+	return matrix(ic + 1, jc) - 2*matrix(ic , jc) + matrix(ic - 1, jc);
+}
+
+double Variable::delta2Eta(const Matrix<double>& matrix, unsigned int i, unsigned int j)
+{
+	unsigned int ic = i + 2;
+	unsigned int jc = j + 2;
+	
+	return matrix(ic , jc + 1) - 2*matrix(ic , jc) + matrix(ic , jc + 1);
+}
