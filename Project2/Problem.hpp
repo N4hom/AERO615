@@ -9,7 +9,7 @@ class Problem
 
 public:
 	Mesh mesh_;
-	double dt_ = 1e-7;
+	double dt_ = 1e-3;
 	unsigned int Nci_ , Mci_;
 	unsigned int Nc_ , Mc_;
 
@@ -167,10 +167,10 @@ void Problem::initialize()
 		{
 			unsigned ic = i + 2;
 			unsigned jc = j + 2;
-			rho_(ic , jc) = rhoInf_;
-			p_(ic , jc) = pInf_;
-			c_(ic , jc) = cInf_;
-			U_(ic , jc) = Uinf_;
+			rho_(ic , jc) = rhoInf_/2;
+			p_(ic , jc) = pInf_/2;
+			c_(ic , jc) = cInf_/2;
+			U_(ic , jc) = Uinf_/2;
 			rhoU_(ic , jc) = rho_(ic , jc) * U_(ic , jc);
 			rhoV_(ic , jc) = rho_(ic , jc) * V_(ic , jc);
 			Umag_(ic , jc) = sqrt(U_(ic , jc)*U_(ic , jc) + V_(ic , jc) * V_(ic , jc));
@@ -221,12 +221,12 @@ void Problem::computeFluxes()
 
 
 	// Looping over internal domain to initialize the fluxes in the interior
-	for (unsigned int ic = 0; ic < Nc_; ++ic)
+	for (unsigned int i = 0; i < Nci_; ++i)
 	{
-		for (unsigned int jc = 0; jc < Mc_; ++jc)
+		for (unsigned int j = 0; j < Mci_; ++j)
 		{
-			// unsigned ic = i + 2;
-			// unsigned jc = j + 2;
+			unsigned ic = i + 2;
+			unsigned jc = j + 2;
 
 
 			rhoFlux_f(ic , jc)  = rhoU_ (ic , jc);
@@ -248,36 +248,37 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 800;
+	unsigned int N = 2;
 	unsigned int iter = 0;
 
 
 	while(iter < N)
 	{
 		rho_.computeResidual();
-		rho_.computeDissipation();
-		rhoU_.computeResidual();
-		rhoU_.computeDissipation();
-		rhoV_.computeResidual();
-		rhoV_.computeDissipation();
-		rhoE_.computeResidual();
-		rhoE_.computeDissipation();
+		//rho_.computeDissipation();
+		//rhoU_.computeResidual();
+		//rhoU_.computeDissipation();
+		//rhoV_.computeResidual();
+		//rhoV_.computeDissipation();
+		//rhoE_.computeResidual();
+		//rhoE_.computeDissipation();
 
+		double deltaT_ = 1e-5;
 
 		for (int i = 0; i < Nci_; ++i)
 		{
 			for (int j = 0; j < Mci_; ++j)
 			{
 				RungeKutta(rho_  , i , j);
-				RungeKutta(rhoU_ , i , j);
-				RungeKutta(rhoV_ , i , j);
-				RungeKutta(rhoE_ , i , j);
+				// RungeKutta(rhoU_ , i , j);
+				// RungeKutta(rhoV_ , i , j);
+				// RungeKutta(rhoE_ , i , j);
+
+				//double& Aij       = area(ic,jc);
 			}
 		}
 
-		std::cout << "after RK " << std::endl;
-		rho_.print();
-
+		
 		//computeFluxes();
 
 		correctProperties();
@@ -291,18 +292,22 @@ void Problem::solve()
 		{
 			std::cout << "rho " << std::endl;
 			rho_.print();
-			std::cout << "rhoU " << std::endl;
-			rhoU_.print();
-			std::cout << "rhoV " << std::endl;
-			rhoV_.print();
-			std::cout << "rhoE " << std::endl;
-			rhoE_.print();
+			rho_.printFlux_f();
+			rho_.printFlux_g();
+			// std::cout << "rhoU " << std::endl;
+			// rhoU_.print();
+			// std::cout << "rhoV " << std::endl;
+			// rhoV_.print();
+			// std::cout << "rhoE " << std::endl;
+			// rhoE_.print();
 
-			std::cout << "c " << std::endl;
-			c_.print();
+			// std::cout << "c " << std::endl;
+			// c_.print();
 
-			std::cout << "M " << std::endl;
-			M_.print();
+			// std::cout << "M " << std::endl;
+			// M_.print();
+
+			std::cout << "Error for rho " << rho_.computeError() << std::endl;
 		}
 
 		iter++;

@@ -19,6 +19,7 @@ class Variable
 	Matrix<double>& p_;
 	Matrix<double>& c_;
 	Matrix<double>& U_, V_;
+	double totalResidual_;
 
 public:
 	Variable(std::string name, unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p);
@@ -40,6 +41,7 @@ public:
 	double computeResidualij(unsigned int i , unsigned int j                    );
 	void computeResidual();
 	void computeDissipation();
+	double computeError();
 	double Rij(unsigned int i, unsigned int j) const{return R_(i,j);};
 	double Dij(unsigned int i, unsigned int j) const{return D_(i,j);};
 	Matrix<double>& R(){return R_;};
@@ -58,6 +60,8 @@ public:
 	double &operator()(unsigned int i, unsigned int j);
 
 	void print() const{ std::cout << name_ << std::endl; phi_.print();};
+	void printFlux_f() const{ std::cout << "f flux for " << name_ << std::endl; flux_f_.print();};
+	void printFlux_g() const{ std::cout << "g flux for " << name_ << std::endl; flux_g_.print();};
 
 	Matrix<double>& phi(){return phi_;}
 	Matrix<double>& flux_f(){return flux_f_;}
@@ -81,11 +85,9 @@ mesh_(mesh),
 p_(p),
 c_(c),
 U_(U),
-V_(V)
-{
-	std::cout << "R " << std::endl;
-	R_.print();
-}
+V_(V),
+totalResidual_(0.)
+{}
 
 Variable::~Variable()
 {}
@@ -180,15 +182,29 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
 	
-	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh_.yFacesLeft_(i , j);  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
+	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh_.yFacesLeft_(i , j) * -1;  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
 	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh_.yFacesRight_(i , j);
-	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh_.yFacesTop_(i , j);;
-	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh_.yFacesBottom_(i , j);;
+	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh_.yFacesTop_(i , j) * -1;
+	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh_.yFacesBottom_(i , j);
 
-	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh_.yFacesLeft_(i , j);;
-	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh_.yFacesRight_(i , j);;
-	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh_.yFacesTop_(i , j);;
-	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFacesBottom_(i , j);;
+	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh_.xFacesLeft_(i , j) * -1;
+	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh_.xFacesRight_(i , j);
+	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh_.xFacesTop_(i , j) * -1;
+	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh_.xFacesBottom_(i , j);
+
+
+	// if (name_ == "rho")
+	// {
+	// 	std::cout << "RfLeft " << RfLeft << std::endl;
+	// 	std::cout << "RfRight " << RfLeft << std::endl;
+	// 	std::cout << "RfTop " << RfLeft << std::endl;
+	// 	std::cout << "RfBottom " << RfLeft << std::endl;
+
+	// 	std::cout << "RgLeft " << RgLeft << std::endl;
+	// 	std::cout << "RgRight " << RgLeft << std::endl;
+	// 	std::cout << "RgTop " << RgLeft << std::endl;
+	// 	std::cout << "RgBottom " << RgLeft << std::endl;
+	// }
 
 
 	return (RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom);
@@ -199,7 +215,7 @@ void Variable::computeResidual()
 {	
 	if (DEBUG)
 	{
-		std::cout << "Calculating residual " << endl;
+		std::cout << "Calculating residual for " << name_ << "\n" << endl;
 	}
 	// Residual has the same size as the internal domain, so the loop is over Nci_,Mci_
 	for (unsigned int i = 0; i < Nci_; ++i)
@@ -208,10 +224,11 @@ void Variable::computeResidual()
 		{
 			
 			R_(i,j) = computeResidualij(i,j);
+			std::cout << "R_(i,j) = " << R_(i,j) << std::endl;
 		}
 	}
 
-	std::cout << "Residual \n" << std::endl;
+	std::cout << "Residual for " << name_ << "\n" << std::endl;
 	R_.print();
 	
 }
@@ -220,13 +237,13 @@ void Variable::computeDissipation()
 {
 	if (DEBUG)
 	{
-		std::cout << "Calculating dissipation " << endl;
+		std::cout << "Calculating dissipation for " << name_ << endl;
 	}
 	// const unsigned int Nc = mesh_.Nc_;
 	// const unsigned int Mc = mesh_.Mc_;
 
-	const double nu2 = 0.5;
-	const double nu4 = 0.005;
+	const double nu2 = 0;
+	const double nu4 = 0.001;
 
 	// The face area must be corrected 
 	Matrix<double> yFacesTop    = mesh_.yFacesTop_;
@@ -245,7 +262,7 @@ void Variable::computeDissipation()
 	// Calculate the second order switches
 	if (DEBUG)
 	{
-		std::cout << "Calculating second order switches\n" << std::endl;
+		std::cout << "Calculating second order switches for " << name_  << "\n" << std::endl;
 	}
 
 	for (unsigned int i = 0; i < Nci_; ++i)
@@ -283,7 +300,7 @@ void Variable::computeDissipation()
 
 	if (DEBUG)
 	{
-		std::cout << "Calculating fourth order switches and dissipation term\n" << std::endl;
+		std::cout << "Calculating fourth order switches and dissipation term "  << name_<< "\n" << std::endl;
 	}
 
 	for (unsigned int i = 0; i < Nci_; ++i)
@@ -341,13 +358,29 @@ void Variable::computeDissipation()
 		}
 	}
 
-	std::cout << "Dissipation \n" << std::endl;
+	std::cout << "Dissipation for " << name_ << "\n" << std::endl;
 	D_.print(); 
 
 	
 }
 
+double Variable::computeError()
+{
+	double totalResidual(0.);
+	for (unsigned int i = 0; i < Nci_; ++i)
+	{
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+			// std::cout << "D_(i,j) " << D_(i,j) << std::endl;
+			// std::cout << "R_(i,j) " << R_(i,j) << std::endl;
+			totalResidual = totalResidual + (0.0 - R_(i,j));
+			// std::cout << "totalResidual " << totalResidual << std::endl;
 
+		}
+	}
+
+	return totalResidual;
+}
 
 double Variable::deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
 {
