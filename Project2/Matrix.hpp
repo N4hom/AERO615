@@ -24,11 +24,8 @@ private:
 
 
 public:
-  Matrix(unsigned int N, unsigned int M, T v = 0): 
-        N(N), 
-        M(M), 
-        A(N, std::vector<T>(M, v))
-        {}
+  Matrix(const unsigned int N, const unsigned int M) : N(N), M(M), A(N, vector<T>(M)) {}
+        
 
 
   const unsigned int cols()

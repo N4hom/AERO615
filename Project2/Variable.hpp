@@ -3,6 +3,17 @@
 #include "debug.hpp"
 #include <algorithm>
 
+// Storage for coefficients for a single CV
+struct Coefficients
+{
+  double p = 0, n = 0, e = 0, s = 0, w = 0, b = 0;
+  void print(const unsigned int pr = 5) const
+  {
+    cout << setprecision(pr) << scientific << "n = " << n << ", e = " << e << ", s = " << s
+         << ", w = " << w << ", p = " << p << ", b = " << b << endl;
+  }
+};
+
 class Variable
 {
 	std::string 	 name_;
@@ -13,6 +24,10 @@ class Variable
 	Matrix<double>  phi_;
 	Matrix<double>  flux_f_;
 	Matrix<double>  flux_g_;
+	Matrix<Coefficients> Rf_;
+	Matrix<Coefficients> Rg_;
+	Matrix<Coefficients> Df_;
+	Matrix<Coefficients> Dg_;
 	Matrix<double>  R_;
 	Matrix<double>  D_;
 	Mesh& 			mesh_;
@@ -80,6 +95,10 @@ Mc_(M),
 phi_(Nc_ , Mc_),
 flux_f_(Nc_ , Mc_),
 flux_g_(Nc_ , Mc_),
+Rf_(Nc_ , Mc_),
+Rg_(Nc_ , Mc_),
+Df_(Nc_ , Mc_),
+Dg_(Nc_ , Mc_),
 R_(Nci_ , Mci_),
 D_(Nci_ , Mci_),
 mesh_(mesh),
