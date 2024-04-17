@@ -103,6 +103,9 @@ yFacesTop_(Nc_,Mc_),
 yFacesBottom_(Nc_,Mc_),
 area_(N+3,M+3)
 {
+
+	std::cout << " Initializing geometry " << std::endl;
+
 	read(filename_x, x_);
 	read(filename_y, y_);
 
@@ -286,6 +289,8 @@ area_(N+3,M+3)
 
 	
 	area_.print();
+
+	std::cout << "Geometry initialized " << std::endl;
 }
 
 Mesh::~Mesh(){}
