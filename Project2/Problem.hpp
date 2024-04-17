@@ -82,7 +82,11 @@ rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_)
 	rhoU_.print();
 	rhoV_.print();
 	rhoE_.print();
-	
+	p_.print();
+	c_.print();
+	U_.print();
+	V_.print();
+
 	computeFluxes();
 	
 
@@ -199,7 +203,7 @@ void Problem::initialize()
 		}
 		
 	}
-	//correctInlet();
+	correctInlet();
 	correctWall();
 	correctOutlet();
 }
@@ -233,6 +237,12 @@ void Problem::computeFluxes()
 
 			rho_.correctFlux_f(i , j);
 			rho_.correctFlux_g(i , j);
+			rhoU_.correctFlux_f(i , j);
+			rhoU_.correctFlux_g(i , j);
+			rhoV_.correctFlux_f(i , j);
+			rhoV_.correctFlux_g(i , j);
+			rhoE_.correctFlux_f(i , j);
+			rhoE_.correctFlux_g(i , j);
 
 			// rhoFlux_f(ic , jc)  = rhoU_ (ic , jc);
 			// rhoUFlux_f(ic , jc) = rhoU_(ic , jc) * U_(ic , jc) + p_(ic , jc);
@@ -256,7 +266,7 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 5;
+	unsigned int N = 30;
 	unsigned int iter = 0;
 
 
@@ -265,13 +275,13 @@ void Problem::solve()
 		std::cout << "iter " << iter << std::endl;
 		rho_.printFlux_f();
 		rho_.computeResidual();
-		rho_.computeDissipation();
+		//rho_.computeDissipation();
 		rhoU_.computeResidual();
-		rhoU_.computeDissipation();
+		//rhoU_.computeDissipation();
 		rhoV_.computeResidual();
-		rhoV_.computeDissipation();
+		//rhoV_.computeDissipation();
 		rhoE_.computeResidual();
-		rhoE_.computeDissipation();
+		//rhoE_.computeDissipation();
 
 		double deltaT_ = 1e-5;
 		for (int i = 0; i < Nci_; ++i)
@@ -284,6 +294,9 @@ void Problem::solve()
 				//double& Aij       = area(ic,jc);
 			}
 		}
+
+		std::cout << "After Runge-Kutta for rho " << std::endl;
+		rho_.print();
 
 		for (int i = 0; i < Nci_; ++i)
 		{
@@ -318,7 +331,7 @@ void Problem::solve()
 			}
 		}
 				
-		rho_.printFlux_f();
+		
 
 		
 		computeFluxes();
@@ -332,16 +345,14 @@ void Problem::solve()
 		std::cout << "End of time step " << std::endl;
 		if (DEBUG)
 		{
-			std::cout << "rho " << std::endl;
 			rho_.print();
 			rho_.printFlux_f();
 			rho_.printFlux_g();
-			// std::cout << "rhoU " << std::endl;
-			// rhoU_.print();
+			rhoU_.print();
 			// std::cout << "rhoV " << std::endl;
-			// rhoV_.print();
+			rhoV_.print();
 			// std::cout << "rhoE " << std::endl;
-			// rhoE_.print();
+			rhoE_.print();
 
 			// std::cout << "c " << std::endl;
 			// c_.print();
@@ -386,47 +397,55 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	// At the next RK step the fluxes must be updated to calculate the new residual. It will be changed only the flux and residual at the cell (ic jc) or (i j)
 	
 	// Step 1
-	std::cout << "Step 1 " << std::endl;
-	variable(ic , jc) = variable0 - alpha1 * dt_/Aij * (Rij - Dij0);
+	std::cout << "Step 1 \n" << std::endl;
+	std::cout << "variable0 = " << variable0 << std::endl;
+	std::cout << "dt_ " << dt_ << std::endl;	
 	std::cout << "Rij " << Rij << std::endl;	
 	std::cout << "Dij0 " << Dij0 << std::endl;	
 	std::cout << "Aij " << Aij << std::endl;	
+	variable(ic , jc) = variable0 - alpha1 * dt_/Aij * (Rij - Dij0);
+	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
+
 	variable.correctFlux_f( ic , jc);
 	variable.correctFlux_g( ic , jc);
 	Rij = variable.computeResidualij(i , j);
 
-
+	std::cout << "\n";
 	// Step 2
-	std::cout << "Step 2 " << std::endl;
-	variable(ic , jc) = variable0 - alpha2 * dt_/Aij * (Rij - Dij0);
+	std::cout << "Step 2 \n" << std::endl;
 	std::cout << "Rij " << Rij << std::endl;	
 	std::cout << "Dij0 " << Dij0 << std::endl;	
 	std::cout << "Aij " << Aij << std::endl;	
+	variable(ic , jc) = variable0 - alpha2 * dt_/Aij * (Rij - Dij0);
+	std::cout << "updated variable " << variable(ic , jc) << std::endl;
+
 	variable.correctFlux_f(ic , jc);
 	variable.correctFlux_g(ic , jc);
 	Rij = variable.computeResidualij(i , j);
 
 
 	// Step 3
-	std::cout << "Step 3 " << std::endl;
-	variable(ic , jc) = variable0 - alpha3 * dt_/Aij * (Rij - Dij0);
+	std::cout << "Step 3 \n" << std::endl;
 	std::cout << "Rij " << Rij << std::endl;	
 	std::cout << "Dij0 " << Dij0 << std::endl;	
 	std::cout << "Aij " << Aij << std::endl;	
+	variable(ic , jc) = variable0 - alpha3 * dt_/Aij * (Rij - Dij0);
+	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
 	variable.correctFlux_f(ic , jc);
 	variable.correctFlux_g(ic , jc);
 	Rij = variable.computeResidualij(i , j);
 
 
 	// Step 4
-	std::cout << "Step 4 " << std::endl;
-	variable(ic , jc) = variable0 - alpha4 * dt_/Aij * (Rij - Dij0);
+	std::cout << "Step 4 \n" << std::endl;
 	std::cout << "Rij " << Rij << std::endl;	
 	std::cout << "Dij0 " << Dij0 << std::endl;	
 	std::cout << "Aij " << Aij << std::endl;	
-	variable.correctFlux_f(ic , jc);
-	variable.correctFlux_g(ic , jc);
-	Rij = variable.computeResidualij(i , j);
+	variable(ic , jc) = variable0 - alpha4 * dt_/Aij * (Rij - Dij0);
+	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
+	// variable.correctFlux_f(ic , jc);
+	// variable.correctFlux_g(ic , jc);
+	// Rij = variable.computeResidualij(i , j);
 
 	std::cout << "\n " << std::endl;
 
@@ -504,10 +523,14 @@ void Problem::correctWall()
 
 void Problem::correctOutlet()
 {
-	for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
+	if (DEBUG)
 	{
+		std::cout << "Correcting outlet boundary conditions " << std::endl;
+	}
 		// unsigned int ic = i + 2;
 		unsigned int Jcmax = mesh_.Jcmax_; // First ghost cell
+	for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
+	{
 
 		p_(ic , Jcmax - 1) = pInf_;   // if subsonic!!!!  
 		p_(ic , Jcmax    ) = pInf_;
@@ -515,23 +538,32 @@ void Problem::correctOutlet()
 		rho_(ic , Jcmax - 1) = 2*rho_(ic , Jcmax - 2) - rho_(ic , Jcmax - 3);
 		rho_(ic , Jcmax    ) = rho_(ic , Jcmax - 1);
 
+		c_(ic , Jcmax - 1) = sqrt(gamma_ * p_(ic , Jcmax - 1) / rho_(ic , Jcmax - 1));
+		c_(ic , Jcmax    ) = sqrt(gamma_ * p_(ic , Jcmax    ) / rho_(ic , Jcmax    ));
+
 		//V_(ic , Jmax - 1) = V_(ic , Jmax ); 
 
 		rhoU_(ic , Jcmax - 1) = 2*rhoU_(ic , Jcmax - 2) - rhoU_(ic , Jcmax - 3);
 		rhoU_(ic , Jcmax    ) = rhoU_(ic , Jcmax - 1);
 
 		rhoV_(ic , Jcmax - 1) = 2*rhoV_(ic , Jcmax - 2) - rhoV_(ic , Jcmax - 3);
-		rhoV_(ic , Jcmax - 1) = rhoV_(ic , Jcmax);
+		rhoV_(ic , Jcmax    ) = rhoV_(ic , Jcmax - 1);
 
 		V_(ic , Jcmax - 1) = rhoV_(ic , Jcmax - 1)/rho_(ic , Jcmax - 1);
-		V_(ic , Jcmax - 1) = V_(ic , Jcmax );
+		V_(ic , Jcmax    ) = V_(ic , Jcmax - 1);
 
 		U_(ic , Jcmax - 1) = rhoU_(ic , Jcmax - 1)/rho_(ic , Jcmax - 1);
-		U_(ic , Jcmax - 1) = U_(ic , Jcmax );
+		U_(ic , Jcmax    ) = U_(ic , Jcmax - 1);
+
 
 		rhoE_(ic , Jcmax - 1) = p_(ic , Jcmax - 1)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax  -1) * (U_(ic , Jcmax - 1) * U_(ic , Jcmax - 1) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 1));
-		rhoE_(ic , Jcmax - 1) = rhoE_(ic , Jcmax );
-	}
+		rhoE_(ic , Jcmax    ) = rhoE_(ic , Jcmax - 1);
+	}	
+
+	// std::cout << "p_(ic , Jcmax - 1)/(gamma_ - 1)" << p_(ic , Jcmax - 1)/(gamma_ - 1) << std::endl;
+	// std::cout << "0.5 * rho_(ic , Jcmax  -1) * (U_(ic , Jcmax - 1) * U_(ic , Jcmax - 1) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 1))" << p_(ic , Jcmax - 1)/(gamma_ - 1) << std::endl;
+
+
 }
 
 void Problem::correctProperties()

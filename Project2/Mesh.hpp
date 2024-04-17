@@ -39,15 +39,18 @@ private:
 	unsigned int Nc_;
 	unsigned int Mc_;
 
-	Matrix<double> xFacesLeft_;
-	Matrix<double> xFacesRight_;
-	Matrix<double> xFacesTop_;
-	Matrix<double> xFacesBottom_;
+	// Matrix<double> xFacesLeft_;
+	// Matrix<double> xFacesRight_;
+	// Matrix<double> xFacesTop_;
+	// Matrix<double> xFacesBottom_;
 
-	Matrix<double> yFacesLeft_;
-	Matrix<double> yFacesRight_;
-	Matrix<double> yFacesTop_;
-	Matrix<double> yFacesBottom_;
+	Matrix<Coefficients> xFaces_;
+	Matrix<Coefficients> yFaces_;
+
+	// Matrix<double> yFacesLeft_;
+	// Matrix<double> yFacesRight_;
+	// Matrix<double> yFacesTop_;
+	// Matrix<double> yFacesBottom_;
 
 	Matrix<double> area_;
 
@@ -87,20 +90,14 @@ xC_(N+3,M+3),   // NUMBER OF CELLS = NUMBER OF NODES - 1 + NUMBER OF GHOST CELLS
 yC_(N+3,M+3),
 Imax_(N-1),
 Jmax_(M-1),
-Icmax_(N+2),   // CELL INDEX MAX = NUMBER OF CELLS - 1
+Icmax_(N+2),    // CELL INDEX MAX = NUMBER OF CELLS - 1
 Jcmax_(M+2),
 N_(N),
 M_(M),
 Nc_(N - 1),
 Mc_(M - 1),
-xFacesLeft_(Nc_,Mc_),
-xFacesRight_(Nc_,Mc_),
-xFacesTop_(Nc_,Mc_),
-xFacesBottom_(Nc_,Mc_),
-yFacesLeft_(Nc_,Mc_),
-yFacesRight_(Nc_,Mc_),
-yFacesTop_(Nc_,Mc_),
-yFacesBottom_(Nc_,Mc_),
+xFaces_(Nc_,Mc_),
+yFaces_(Nc_,Mc_),
 area_(N+3,M+3)
 {
 
@@ -222,15 +219,15 @@ area_(N+3,M+3)
 
 	// Define faces
 
-	// Define left and right faces predominantly oriented in the x-direction
+	// Store face areas
 	for (unsigned int i = 0; i < Nc_ ; ++i)
 	{
 		for (unsigned int j = 0; j < Mc_ ; ++j)
 		{
-			xFacesLeft_(i,j)  = y_(i     , j   ) - y_(i+1   , j   );
-			xFacesRight_(i,j) = y_(i     , j+1 ) - y_(i+1   , j+1 );
-			xFacesTop_(i,j)   = y_(i     , j+1 ) - y_(i     , j   );
-			xFacesTop_(i,j)   = y_(i + 1 , j+1 ) - y_(i + 1 , j   );
+			xFaces_(i,j).w  =  y_(i + 1 , j     ) - y_(i     , j     );
+			xFaces_(i,j).e  =  y_(i     , j + 1 ) - y_(i + 1 , j + 1 );
+			xFaces_(i,j).n  =  y_(i     , j     ) - y_(i     , j + 1 );
+			xFaces_(i,j).s  =  y_(i + 1 , j + 1 ) - y_(i + 1 , j     );
 
 		}	
 	}
@@ -241,31 +238,46 @@ area_(N+3,M+3)
 		for (unsigned int j = 0; j < Jmax_ ; ++j)
 		{
 			
-			yFacesTop_(i,j)  = x_(i  , j+1  ) - x_(i    , j  );
-			yFacesBottom_(i,j) = x_(i+1 , j+1 ) - x_(i+1     , j );
-			yFacesLeft_(i,j)  = x_(i     , j   ) - x_(i+1   , j   );
-			yFacesRight_(i,j) = x_(i     , j+1 ) - x_(i+1   , j+1 );
+			yFaces_(i,j).w  =  x_(i + 1 , j     ) - x_(i     , j     );
+			yFaces_(i,j).e  =  x_(i     , j + 1 ) - x_(i + 1 , j + 1 );
+			yFaces_(i,j).n  =  x_(i     , j     ) - x_(i     , j + 1 );
+			yFaces_(i,j).s  =  x_(i + 1 , j + 1 ) - x_(i + 1 , j     );
 
 		}	
 	}		
 
-	std::cout << "xFacesLeft_ " << "\n" << std::endl;
-	xFacesLeft_.print();
-	std::cout << "xFacesRight_ " << "\n" << std::endl;
-	xFacesRight_.print();
-	std::cout << "xFacesTop_ " << "\n" << std::endl;
-	xFacesTop_.print();
-	std::cout << "xFacesBottom_ " << "\n" << std::endl;
-	xFacesBottom_.print();
 
-	std::cout << "yFacesLeft_ " << "\n" << std::endl;
-	yFacesLeft_.print();
-	std::cout << "yFacesRight_ " << "\n" << std::endl;
-	yFacesRight_.print();
-	std::cout << "yFacesTop_ " << "\n" << std::endl;
-	yFacesTop_.print();
-	std::cout << "yFacesBottom_ " << "\n" << std::endl;
-	yFacesBottom_.print();
+	for (unsigned int i = 0; i < Imax_ ; ++i)
+	{
+		for (unsigned int j = 0; j < Jmax_ ; ++j)
+		{
+			std::cout << "i " << i << std::endl;
+			std::cout << "j " << j << std::endl;
+			std::cout << "xFaces_ " << "\n" << std::endl;
+			xFaces_(i,j).print();
+			std::cout << "yFaces_ " << "\n" << std::endl;
+			yFaces_(i,j).print();
+		}	
+	}		
+
+	
+	// std::cout << "xFacesLeft_ " << "\n" << std::endl;
+	// xFacesLeft_.print();
+	// std::cout << "xFacesRight_ " << "\n" << std::endl;
+	// xFacesRight_.print();
+	// std::cout << "xFacesTop_ " << "\n" << std::endl;
+	// xFacesTop_.print();
+	// std::cout << "xFacesBottom_ " << "\n" << std::endl;
+	// xFacesBottom_.print();
+
+	// std::cout << "yFacesLeft_ " << "\n" << std::endl;
+	// yFacesLeft_.print();
+	// std::cout << "yFacesRight_ " << "\n" << std::endl;
+	// yFacesRight_.print();
+	// std::cout << "yFacesTop_ " << "\n" << std::endl;
+	// yFacesTop_.print();
+	// std::cout << "yFacesBottom_ " << "\n" << std::endl;
+	// yFacesBottom_.print();
 
 	double areaTot = 0;
 

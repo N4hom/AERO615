@@ -3,16 +3,16 @@
 #include "debug.hpp"
 #include <algorithm>
 
-// Storage for coefficients for a single CV
-struct Coefficients
-{
-  double p = 0, n = 0, e = 0, s = 0, w = 0, b = 0;
-  void print(const unsigned int pr = 5) const
-  {
-    cout << setprecision(pr) << scientific << "n = " << n << ", e = " << e << ", s = " << s
-         << ", w = " << w << ", p = " << p << ", b = " << b << endl;
-  }
-};
+// // Storage for coefficients for a single CV
+// struct Coefficients
+// {
+//   double p = 0, n = 0, e = 0, s = 0, w = 0, b = 0;
+//   void print(const unsigned int pr = 5) const
+//   {
+//     cout << setprecision(pr) << scientific << "n = " << n << ", e = " << e << ", s = " << s
+//          << ", w = " << w << ", p = " << p << ", b = " << b << endl;
+//   }
+// };
 
 class Variable
 {
@@ -27,7 +27,6 @@ class Variable
 	Matrix<Coefficients> Rf_;
 	Matrix<Coefficients> Rg_;
 	Matrix<Coefficients> Df_;
-	Matrix<Coefficients> Dg_;
 	Matrix<double>  R_;
 	Matrix<double>  D_;
 	Mesh& 			mesh_;
@@ -95,10 +94,9 @@ Mc_(M),
 phi_(Nc_ , Mc_),
 flux_f_(Nc_ , Mc_),
 flux_g_(Nc_ , Mc_),
-Rf_(Nc_ , Mc_),
-Rg_(Nc_ , Mc_),
-Df_(Nc_ , Mc_),
-Dg_(Nc_ , Mc_),
+Rf_(Nci_ , Mci_),
+Rg_(Nci_ , Mci_),
+Df_(Nci_ , Mci_),
 R_(Nci_ , Mci_),
 D_(Nci_ , Mci_),
 mesh_(mesh),
@@ -150,17 +148,17 @@ double Variable::flux_f(unsigned int i , unsigned int j)
 
 	if (name_ == "rhoU")
 	{
-		std::cout << "phi_ * U + p_" << phi_(i , j) << " " << U_(i , j) << " + " << p_(i , j) << " = " << phi_(i , j) * U_(i , j) + p_(i , j) << endl;
+		//std::cout << "phi_ * U + p_" << phi_(i , j) << " " << U_(i , j) << " + " << p_(i , j) << " = " << phi_(i , j) * U_(i , j) + p_(i , j) << endl;
 		return phi_(i , j) * U_(i , j) + p_(i , j);
 	}
 	else if (name_ == "rhoE")
 	{
-		std::cout << "phi_ * U + p_ * U_" << phi_(i , j) << " " << U_(i , j) << " + " << p_(i , j) << " * " << U_(i , j) << " = " << phi_(i , j) * U_(i , j) + p_(i , j) * U_(i , j) << endl;
+		//std::cout << "phi_ * U + p_ * U_" << phi_(i , j) << " " << U_(i , j) << " + " << p_(i , j) << " * " << U_(i , j) << " = " << phi_(i , j) * U_(i , j) + p_(i , j) * U_(i , j) << endl;
 		return phi_(i , j) * U_(i , j) + p_(i , j) * U_(i , j);
 	}
 	else
 	{
-		std::cout << "phi_ * U " << phi_(i , j) << " " << U_(i , j) << " = " << phi_(i , j) * U_(i , j) << std::endl;
+		//std::cout << "phi_ * U " << phi_(i , j) << " " << U_(i , j) << " = " << phi_(i , j) * U_(i , j) << std::endl;
 		return phi_(i , j) * U_(i , j);	
 	}
 }
@@ -169,17 +167,17 @@ double Variable::flux_g( unsigned int i , unsigned int j)
 {
 	if (name_ == "rhoV")
 	{
-		std::cout << "phi_ * V + p_" << phi_(i , j) << " " << V_(i , j) << " + " << p_(i , j) << " = " << phi_(i , j) * V_(i , j) + p_(i , j) << std::endl;;
+		// std::cout << "phi_ * V + p_" << phi_(i , j) << " " << V_(i , j) << " + " << p_(i , j) << " = " << phi_(i , j) * V_(i , j) + p_(i , j) << std::endl;;
 		return phi_(i , j) * V_(i , j) + p_(i , j);
 	}
 	else if (name_ == "rhoE")
 	{
-		std::cout << "phi_ * V + p_ * V_" << phi_(i , j) << " " << V_(i , j) << " + " << p_(i , j) << " * " << V_(i , j) << " =" << phi_(i , j) * V_(i , j) + p_(i , j) * U_(i , j) << std::endl;
+		// std::cout << "phi_ * V + p_ * V_" << phi_(i , j) << " " << V_(i , j) << " + " << p_(i , j) << " * " << V_(i , j) << " =" << phi_(i , j) * V_(i , j) + p_(i , j) * U_(i , j) << std::endl;
 		return phi_(i , j) * V_(i , j) + p_(i , j) * V_(i , j) ;
 	}
 	else
 	{
-		std::cout << "phi_ * V " << phi_(i , j) << " " << V_(i , j) << " = " << phi_(i , j) * V_(i , j) << std::endl;
+		// std::cout << "phi_ * V " << phi_(i , j) << " " << V_(i , j) << " = " << phi_(i , j) * V_(i , j) << std::endl;
 		return phi_(i , j) * V_(i , j);	
 	}
 }
@@ -215,7 +213,7 @@ void Variable::computeFlux_g()
 void Variable::correctFlux_g(unsigned int i, unsigned int j)
 {
 	
-	std::cout << "flux_g(i , j) " << std::endl;
+	// std::cout << "flux_g(i , j) " << std::endl;
 	flux_g_(i , j) = flux_g(i , j);
 
 }
@@ -223,7 +221,7 @@ void Variable::correctFlux_g(unsigned int i, unsigned int j)
 void Variable::correctFlux_f(unsigned int i, unsigned int j)
 {
 	
-	std::cout << "flux_f(ic , jc) " << std::endl;
+	// std::cout << "flux_f(ic , jc) " << std::endl;
 	flux_f_(i , j) = flux_f(i , j);
 
 }
@@ -234,15 +232,25 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
 	
-	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh_.xFacesLeft_(i , j) * -1;  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
-	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh_.xFacesRight_(i , j);
-	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh_.xFacesTop_(i , j) * -1;
-	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh_.xFacesBottom_(i , j);
+	double RfLeft = interpolateLeft(flux_f_ , ic , jc) * mesh_.xFaces_(i , j).w ;  // f component calculated assuming that yFacesLeft_ stores face area along csi(y)
+	double RfRight = interpolateRight(flux_f_ , ic , jc) * mesh_.xFaces_(i , j).e;
+	double RfTop = interpolateTop(flux_f_ , ic , jc) * mesh_.xFaces_(i , j).n ;
+	double RfBottom = interpolateBottom(flux_f_ , ic , jc) * mesh_.xFaces_(i , j).s;
 
-	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh_.yFacesLeft_(i , j) * -1;
-	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh_.yFacesRight_(i , j);
-	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh_.yFacesTop_(i , j) * -1;
-	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFacesBottom_(i , j);
+	Rf_(i , j).w = RfLeft;
+	Rf_(i , j).e = RfRight;
+	Rf_(i , j).n = RfTop;
+	Rf_(i , j).s = RfBottom;
+
+	double RgLeft = interpolateLeft(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).w ;
+	double RgRight = interpolateRight(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).e;
+	double RgTop = interpolateTop(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).n ;
+	double RgBottom = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).s;
+
+	Rg_(i , j).w = RgLeft;
+	Rg_(i , j).e = RgRight;
+	Rg_(i , j).n = RgTop;
+	Rg_(i , j).s = RgBottom;
 
 
 	if (name_ == "rho")
@@ -256,6 +264,9 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 		std::cout << "RgRight " << RgRight << std::endl;
 		std::cout << "RgTop " << RgTop << std::endl;
 		std::cout << "RgBottom " << RgBottom << std::endl;
+
+		std::cout << "(RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom) " 
+		<< (RfLeft + RfRight + RfTop + RfBottom) - (RgLeft + RgRight + RgTop + RgBottom) << std::endl;
 	}
 
 
@@ -278,6 +289,10 @@ void Variable::computeResidual()
 			std::cout << "i " << i << std::endl;
 			std::cout << "j " << j << std::endl;
 			R_(i,j) = computeResidualij(i,j);
+			std::cout << "Rf Coefficients " << std::endl;
+			Rf_(i,j).print();
+			std::cout << "Rg Coefficients " << std::endl;
+			Rg_(i,j).print();
 			std::cout << "R_(i,j) = " << R_(i,j) << "\n"<< std::endl;
 		}
 	}
@@ -301,12 +316,10 @@ void Variable::computeDissipation()
 	const double nu4 = 0.001;
 
 	// The face area must be corrected 
-	Matrix<double> yFacesTop    = mesh_.yFacesTop_;
-	Matrix<double> yFacesBottom = mesh_.yFacesBottom_;
+	Matrix<Coefficients>& xFaces    = mesh_.xFaces_;
+	Matrix<Coefficients>& yFaces    = mesh_.yFaces_;
 
-	Matrix<double> xFacesRight  = mesh_.xFacesRight_;
-	Matrix<double> xFacesLeft   = mesh_.xFacesLeft_;
-
+	
 	Matrix<double> sCsi2(Nc_ , Mc_ );
 	Matrix<double> sEta2(Nc_ , Mc_ );
 
@@ -395,21 +408,43 @@ void Variable::computeDissipation()
 			double lambdaEtaRight  = interpolateRight(lambdaEta , ic , jc );
 			double lambdaEtaLeft   = interpolateLeft(lambdaEta , ic , jc );
 
-			double deltaCsi2Var = sCsi2Top * yFacesTop(i , j) * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) 
-								 - sCsi2Bottom * yFacesBottom(i , j) * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc));
+			double deltaCsi2Var = sCsi2Top * yFaces(i , j).n * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) 
+								 - sCsi2Bottom * yFaces(i , j).s * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc));
 	
-			double deltaEta2Var =  sEta2Right * xFacesRight(i , j) * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) 
-							 	 - sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1));
+			double deltaEta2Var =  sEta2Right * xFaces(i , j).e * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) 
+							 	 - sEta2Left * xFaces(i , j).w * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1));
 
-			double deltaCsi4Var = sCsi4Top * yFacesTop(i , j) * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) ) 
-								 - sCsi4Bottom * yFacesBottom(i , j) * lambdaCsiBottom * ( delta2Eta(phi_ , i , j) - delta2Eta(phi_ , i - 1, j) );
+			double deltaCsi4Var = sCsi4Top * yFaces(i , j).n * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) ) 
+								 - sCsi4Bottom * yFaces(i , j).s * lambdaCsiBottom * ( delta2Eta(phi_ , i , j) - delta2Eta(phi_ , i - 1, j) );
 
-			double deltaEta4Var = sEta4Right * xFacesRight(i , j) * lambdaEtaRight * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) ) 
-								 - sEta4Left * xFacesLeft(i , j) * lambdaEtaLeft * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) );
+			double deltaEta4Var = sEta4Right * xFaces(i , j).e * lambdaEtaRight * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) ) 
+								 - sEta4Left * xFaces(i , j).w * lambdaEtaLeft * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) );
 
-			D_(i , j)  = (deltaCsi2Var + deltaEta2Var) - (deltaCsi4Var + deltaEta4Var);
+
+			Df_(i , j).w = - (sEta2Left * xFaces(i , j).w * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) -
+								   sEta4Left * xFaces(i , j).w * lambdaEtaLeft * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) ) ) ;
+			Df_(i , j).e =    sEta2Right * xFaces(i , j).e * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) -
+								   sEta4Right * xFaces(i , j).e * lambdaEtaRight * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) );
+			Df_(i , j).n =    sCsi2Top * yFaces(i , j).n * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) -
+								   sCsi4Top * yFaces(i , j).n * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) );
+			Df_(i , j).s = - (sCsi2Bottom * yFaces(i , j).s * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc)) -
+									sCsi4Bottom * yFaces(i , j).s * lambdaCsiBottom * ( delta2Eta(phi_ , i , j) - delta2Eta(phi_ , i - 1, j) ));
+
+
+			//D_(i , j)  = (deltaCsi2Var + deltaEta2Var) - (deltaCsi4Var + deltaEta4Var);
 			
-		
+			// std::cout << "D_(i,j) " << D_(i,j) << std::endl;
+			// std::cout << "sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) " << sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) << std::endl;
+			// std::cout << "Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s " << Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s << std::endl;
+			
+			if (i > 0 && i < Nci_)
+			{
+				D_(i , j) = Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s;
+			}
+			else
+			{
+				D_(i , j) = Df_(i,j).w + Df_(i,j).e;
+			}
 		}
 	}
 
@@ -428,7 +463,7 @@ double Variable::computeError()
 		{
 			// std::cout << "D_(i,j) " << D_(i,j) << std::endl;
 			// std::cout << "R_(i,j) " << R_(i,j) << std::endl;
-			totalResidual = totalResidual + (D_(i,j) - R_(i,j));
+			totalResidual = totalResidual + std::abs((D_(i,j) - R_(i,j)));
 			// std::cout << "totalResidual " << totalResidual << std::endl;
 
 		}

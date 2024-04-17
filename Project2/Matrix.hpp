@@ -7,6 +7,19 @@
 #include "Vector.hpp"
 #include <iostream>
 
+
+
+// Storage for coefficients for a single CV
+struct Coefficients
+{
+  double p = 0, n = 0, e = 0, s = 0, w = 0, b = 0;
+  void print(const unsigned int pr = 5) const
+  {
+    cout << setprecision(pr) << scientific << "n = " << n << ", e = " << e << ", s = " << s
+         << ", w = " << w << ", p = " << p << ", b = " << b << endl;
+  }
+};
+
 /**
  *
  *  Matrix class for data storage.
