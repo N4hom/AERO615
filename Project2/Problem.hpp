@@ -51,9 +51,9 @@ public:
 	void correctProperties();
 	void correctTimeStep();
 	void R();
-	Matrix<double> R(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
-	Matrix<double> D(const Matrix<double>& variable);
-	void D(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
+	// Matrix<double> R(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
+	// Matrix<double> D(const Matrix<double>& variable);
+	//void D(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
 	void solve();
 	void RungeKutta(Variable& variable , int i , int j);
 	
@@ -275,7 +275,7 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 3;
+	unsigned int N = 200;
 	unsigned int iter = 0;
 
 

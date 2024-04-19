@@ -30,9 +30,10 @@ class Variable
 	Matrix<double>  R_;
 	Matrix<double>  D_;
 	Mesh& 			mesh_;
-	Matrix<double>* p_;
-	Matrix<double>* c_;
-	Matrix<double>* U_, V_;
+	Matrix<double>& p_;
+	Matrix<double>& c_;
+	Matrix<double>& U_; 
+	Matrix<double>& V_;
 	double totalResidual_;
 
 public:
@@ -308,7 +309,7 @@ void Variable::computeDissipation()
 	// const unsigned int Mc = mesh_.Mc_;
 
 	const double nu2 = 0;
-	const double nu4 = 0;
+	const double nu4 = 0.001;
 
 	// The face area must be corrected 
 	Matrix<Coefficients>& xFaces    = mesh_.xFaces_;
