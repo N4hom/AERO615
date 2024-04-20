@@ -181,8 +181,9 @@ area_(N+3,M+3)
 
 			if (i == Imax_ - 1)
 			{
-				yC_(Icmax_ - 1,jc) = -yC_(Icmax_ - 2, jc); 
-				yC_(Icmax_,jc) = -2*yC_(Icmax_ - 2, jc); 
+				double deltaY = yC_(Icmax_ - 3 , jc ) - yC_(Icmax_ - 2 , jc );
+				yC_(Icmax_ - 1 , jc) = yC_(Icmax_ - 2 , jc) - deltaY; 
+				yC_(Icmax_,jc) = yC_(Icmax_ - 1 , jc) - deltaY; 
 			}
 
 			if (j == Jmax_ - 1)
@@ -232,7 +233,7 @@ area_(N+3,M+3)
 		}	
 	}
 	
-	// Define left and right faces predominantly oriented in the y-direction	
+	// Define left and right faces length component in the y direction
 	for (unsigned int i = 0; i < Imax_ ; ++i)
 	{
 		for (unsigned int j = 0; j < Jmax_ ; ++j)

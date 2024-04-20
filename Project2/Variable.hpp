@@ -26,7 +26,7 @@ class Variable
 	Matrix<double>  flux_g_;
 	Matrix<Coefficients> Rf_;
 	Matrix<Coefficients> Rg_;
-	Matrix<Coefficients> Df_;
+	Matrix<Coefficients> DCoeff_;
 	Matrix<double>  R_;
 	Matrix<double>  D_;
 	Mesh& 			mesh_;
@@ -34,10 +34,13 @@ class Variable
 	Matrix<double>& c_;
 	Matrix<double>& U_; 
 	Matrix<double>& V_;
+	Matrix<Coefficients>& s2_;
+	Matrix<Coefficients>& s4_;
+	Matrix<Coefficients> lambda_;
 	double totalResidual_;
 
 public:
-	Variable(std::string name, unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p);
+	Variable(std::string name, unsigned int N , unsigned int M , Mesh& mesh, Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p , Matrix<Coefficients>& s2_ , Matrix<Coefficients>& s4_);
 	~Variable();
 
 
@@ -86,7 +89,7 @@ public:
 };
 
 // input is the number of total cell. Easier to set the Variable input using the size of the matrix phi
-Variable::Variable(std::string name, unsigned int N, unsigned int M , Mesh& mesh , Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p):
+Variable::Variable(std::string name, unsigned int N, unsigned int M , Mesh& mesh , Matrix<double>& U , Matrix<double>& V , Matrix<double>& c , Matrix<double>& p, Matrix<Coefficients>& s2 , Matrix<Coefficients>& s4):
 name_(name),
 Nci_(N - 4),
 Mci_(M - 4),
@@ -97,7 +100,7 @@ flux_f_(Nc_ , Mc_),
 flux_g_(Nc_ , Mc_),
 Rf_(Nci_ , Mci_),
 Rg_(Nci_ , Mci_),
-Df_(Nci_ , Mci_),
+DCoeff_(Nci_ , Mci_),
 R_(Nci_ , Mci_),
 D_(Nci_ , Mci_),
 mesh_(mesh),
@@ -105,14 +108,15 @@ p_(p),
 c_(c),
 U_(U),
 V_(V),
+s2_(s2),
+s4_(s4),
+lambda_(Nc_ , Mc_),
 totalResidual_(0.)
 {}
 
 Variable::~Variable()
 {
-	p_.print();
-	U_.print();
-	V_.print();
+	
 }
 
 
@@ -257,6 +261,8 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	Rg_(i , j).n = interpolateTop(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).n ;
 	Rg_(i , j).s = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).s;
 
+	
+
 
 	
 	std::cout << "f residual " << std::endl;
@@ -264,7 +270,7 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	std::cout << "g residual " << std::endl;
 		Rg_(i , j).print();
 	
-
+	// South and west assumed negative contributions
 	double Rij =  (Rf_(i , j).n + Rf_(i , j).s + Rf_(i , j).e + Rf_(i , j).w) - (Rg_(i , j).n + Rg_(i , j).s + Rg_(i , j).e + Rg_(i , j).w);
 	return Rij;
 	
@@ -305,28 +311,15 @@ void Variable::computeDissipation()
 	{
 		std::cout << "Calculating dissipation for " << name_ << endl;
 	}
-	// const unsigned int Nc = mesh_.Nc_;
-	// const unsigned int Mc = mesh_.Mc_;
-
-	const double nu2 = 0;
-	const double nu4 = 0.001;
 
 	// The face area must be corrected 
 	Matrix<Coefficients>& xFaces    = mesh_.xFaces_;
 	Matrix<Coefficients>& yFaces    = mesh_.yFaces_;
 
-	
-	Matrix<double> sCsi2(Nc_ , Mc_ );
-	Matrix<double> sEta2(Nc_ , Mc_ );
-
-	Matrix<double> lambdaCsi(Nc_ , Mc_ );
-	Matrix<double> lambdaEta(Nc_ , Mc_ );
-
-	
 	// Calculate the second order switches
 	if (DEBUG)
 	{
-		std::cout << "Calculating second order switches for " << name_  << "\n" << std::endl;
+		std::cout << "Calculating eigenvalues " << name_  << "\n" << std::endl;
 	}
 
 	for (unsigned int i = 0; i < Nci_; ++i)
@@ -337,27 +330,10 @@ void Variable::computeDissipation()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-
-			// I should be calculating the switch separately at i,j and i+1,j and then take the average
-			double sCsi2_ij_num , sCsi2_ij_den;
-			double sEta2_ij_num , sEta2_ij_den;
-
-			// delta2csi already adjust the indexes to access the fields
-			sCsi2_ij_num = delta2Csi(p_ , i , j);
-			sCsi2_ij_den = p_(ic  , jc + 1 ) + 2*p_(ic , jc) + p_(ic , jc + 1);
-			double sCsi2_ij = nu2 * sCsi2_ij_num/sCsi2_ij_den;
-
-
-			sEta2_ij_num = delta2Eta(p_ , i , j);
-			sEta2_ij_den = p_(ic , jc + 1 ) + 2*p_(ic , jc) + p_(ic  , jc - 1 ); // I don't know why it acts only on ic
-			double sEta2_ij = nu2 * sEta2_ij_num/sEta2_ij_den;
-
-			sCsi2(ic , jc) = sCsi2_ij; 
-			sEta2(ic , jc) = sEta2_ij; 
-
-
-			lambdaCsi(ic , jc) = std::abs(V_(ic , jc)) + c_(ic , jc);
-			lambdaEta(ic , jc) = std::abs(U_(ic , jc)) + c_(ic , jc);
+			lambda_(ic , jc).n = std::abs(interpolateTop(V_ , ic , jc)) + interpolateTop(c_ , ic , jc);
+			lambda_(ic , jc).s = std::abs(interpolateBottom(V_ , ic , jc)) + interpolateBottom(c_ , ic , jc);
+			lambda_(ic , jc).e = std::abs(interpolateRight(U_ , ic , jc)) + interpolateRight(c_ , ic , jc);
+			lambda_(ic , jc).w = std::abs(interpolateLeft(U_ , ic , jc)) + interpolateLeft(c_ , ic , jc);
 		}
 	}
 
@@ -374,81 +350,33 @@ void Variable::computeDissipation()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-			double sCsi2Top        = interpolateTop(sCsi2 , ic , jc );
-			double sCsi2Bottom     = interpolateBottom(sCsi2 , ic , jc );
-			double sCsi2Right      = interpolateRight(sCsi2 , ic , jc );
-			double sCsi2Left       = interpolateLeft(sCsi2 , ic , jc );
-
-			double sEta2Top        = interpolateTop(sEta2 , ic , jc );
-			double sEta2Bottom     = interpolateBottom(sEta2 , ic , jc );
-			double sEta2Right      = interpolateRight(sEta2 , ic , jc );
-			double sEta2Left       = interpolateLeft(sEta2 , ic , jc );
-
-			double sCsi4Top        = std::max(0. , nu4 - sCsi2Top);
-			double sCsi4Bottom     = std::max(0. , nu4 - sCsi2Bottom);
-			double sCsi4Right      = std::max(0. , nu4 - sCsi2Right);
-			double sCsi4Left       = std::max(0. , nu4 - sCsi2Left);
-
-			double sEta4Top        = std::max(0. , nu4 - sEta2Top);
-			double sEta4Bottom     = std::max(0. , nu4 - sEta2Bottom);
-			double sEta4Right      = std::max(0. , nu4 - sEta2Right);
-			double sEta4Left       = std::max(0. , nu4 - sEta2Left);
-
-			double lambdaCsiTop    = interpolateTop(lambdaCsi , ic , jc );
-			double lambdaCsiBottom = interpolateBottom(lambdaCsi , ic , jc );
-			double lambdaCsiRight  = interpolateRight(lambdaCsi , ic , jc );
-			double lambdaCsiLeft   = interpolateLeft(lambdaCsi , ic , jc );
-
-			double lambdaEtaTop    = interpolateTop(lambdaEta , ic , jc );
-			double lambdaEtaBottom = interpolateBottom(lambdaEta , ic , jc );
-			double lambdaEtaRight  = interpolateRight(lambdaEta , ic , jc );
-			double lambdaEtaLeft   = interpolateLeft(lambdaEta , ic , jc );
-
-			// double deltaCsi2Var = sCsi2Top * yFaces(i , j).n * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) 
-			// 					 - sCsi2Bottom * yFaces(i , j).s * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc));
-	
-			// double deltaEta2Var =  sEta2Right * xFaces(i , j).e * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) 
-			// 				 	 - sEta2Left * xFaces(i , j).w * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1));
-
-			// double deltaCsi4Var = sCsi4Top * yFaces(i , j).n * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) ) 
-			// 					 - sCsi4Bottom * yFaces(i , j).s * lambdaCsiBottom * ( delta2Eta(phi_ , i , j) - delta2Eta(phi_ , i - 1, j) );
-
-			// double deltaEta4Var = sEta4Right * xFaces(i , j).e * lambdaEtaRight * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) ) 
-			// 					 - sEta4Left * xFaces(i , j).w * lambdaEtaLeft * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) );
-
-
-			Df_(i , j).w =  -(sEta2Left * xFaces(i , j).w * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) -
-								   sEta4Left * xFaces(i , j).w * lambdaEtaLeft * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) ) ) ;
-			Df_(i , j).e =    sEta2Right * xFaces(i , j).e * lambdaEtaRight * (phi_(ic , jc + 1) - phi_(ic , jc)) -
-								   sEta4Right * xFaces(i , j).e * lambdaEtaRight * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) );
 			
-			Df_(i , j).n =    sCsi2Top * yFaces(i , j).n * lambdaCsiTop * (phi_(ic + 1 , jc) - phi_(ic , jc)) -
-								   sCsi4Top * yFaces(i , j).n * lambdaCsiTop * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) );
-			Df_(i , j).s =  -(sCsi2Bottom * yFaces(i , j).s * lambdaCsiBottom * (phi_(ic , jc) - phi_(ic - 1 , jc)) -
-									sCsi4Bottom * yFaces(i , j).s * lambdaCsiBottom * ( delta2Csi(phi_ , i , j) - delta2Csi(phi_ , i - 1, j) ));
+			// The signs should be corrected
+			DCoeff_(i , j).w =    s2_(ic , jc).w * xFaces(i , j).w * lambda_(ic , jc).w * (phi_(ic , jc) - phi_(ic , jc - 1)) -
+									    s4_(ic , jc).w * xFaces(i , j).w * lambda_(ic , jc).w * ( delta2Eta(phi_ , i , j ) - delta2Eta(phi_ , i , j - 1) ) ;
+			DCoeff_(i , j).e =    s2_(ic , jc).e * xFaces(i , j).e * lambda_(ic , jc).e * (phi_(ic , jc + 1) - phi_(ic , jc)) -
+								       s4_(ic , jc).e * xFaces(i , j).e * lambda_(ic , jc).e * ( delta2Eta(phi_ , i , j + 1) - delta2Eta(phi_ , i , j) );
+			
+			DCoeff_(i , j).n =    s2_(ic , jc).n * yFaces(i , j).n * lambda_(ic , jc).n * (phi_(ic  , jc) - phi_(ic - 1, jc)) -
+								       s4_(ic , jc).n * yFaces(i , j).n * lambda_(ic , jc).n * ( delta2Csi(phi_ , i , j) - delta2Csi(phi_ , i - 1 , j) );
+			DCoeff_(i , j).s =    s2_(ic , jc).s * yFaces(i , j).s * lambda_(ic , jc).s * (phi_(ic + 1 , jc) - phi_(ic  , jc)) -
+									    s4_(ic , jc).s * yFaces(i , j).s * lambda_(ic , jc).s * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) );
 
 
+
+			D_(i , j) = DCoeff_(i , j).s - DCoeff_(i , j).n + DCoeff_(i , j).e - DCoeff_(i , j).w;
 			//D_(i , j)  = (deltaCsi2Var + deltaEta2Var) - (deltaCsi4Var + deltaEta4Var);
 			
 			// std::cout << "D_(i,j) " << D_(i,j) << std::endl;
 			// std::cout << "sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) " << sEta2Left * xFacesLeft(i , j) * lambdaEtaLeft * (phi_(ic , jc) - phi_(ic , jc - 1)) << std::endl;
 			// std::cout << "Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s " << Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s << std::endl;
 			
-			if (i == 0 )
-			{
-				Df_(i,j).n = 0.;
-			}
-			else if(i == Nci_ - 1)
-			{
-				Df_(i,j).s = 0.;				
-			}
 			
-			D_(i , j) = Df_(i,j).w + Df_(i,j).e + Df_(i,j).n + Df_(i,j).s;
 			
 			std::cout << "i " << i << std::endl;
 			std::cout << "j " << j << std::endl;
 			std::cout << "D Coefficients " << std::endl;
-			Df_(i , j).print() ;
+			DCoeff_(i , j).print() ;
 			
 		}
 	}

@@ -1,9 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+# load cell centres
 xc = np.loadtxt('xc', delimiter=',')
 yc = np.loadtxt('yc', delimiter=',')
 
+
+# Load nodes
 x = np.loadtxt('x', delimiter=',')
 y = np.loadtxt('y', delimiter=',')
 

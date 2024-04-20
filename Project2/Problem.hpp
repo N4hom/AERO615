@@ -3,6 +3,7 @@
 #include "Variable.hpp"
 #include "debug.hpp"
 #include <math.h>
+#include <algorithm>
 #include <ostream>
 #include <fstream>
 
@@ -13,6 +14,8 @@ public:
 	Mesh mesh_;
 	double dt_;
 	double CFL_ = 2.8;
+	const double nu2_ = 0;
+	const double nu4_ = 0.001;
 	unsigned int Nci_ , Mci_;
 	unsigned int Nc_ , Mc_;
 
@@ -22,10 +25,15 @@ public:
 	Matrix<double> M_;
 	Matrix<double> Riem1_;
 	Matrix<double> Riem2_;
+	Matrix<double> s2Csi_;
+	Matrix<double> s2Eta_;
+	Matrix<Coefficients> s2_;
+	Matrix<Coefficients> s4_;
+	Matrix<Coefficients> lambda_;
 
 	double gamma_ = 1.4;
 	double pInf_  = 101325;;
-	double pRatio = 0.99;
+	double pRatio = 0.9;
 	double Minf_  = 0.3;
 	double alphaInf_ = 0;
 	double rhoInf_   = 1;
@@ -41,8 +49,14 @@ public:
 	double delta3Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
 	double delta3Eta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
 
+	double interpolateLeft  (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateRight (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateTop   (Matrix<double>& flux , unsigned int i, unsigned int j) const;
+	double interpolateBottom(Matrix<double>& flux , unsigned int i, unsigned int j) const;
+
 	void initialize();
 	void computeFluxes();
+	void computeSwitches();
 	void correctBoundaryConditions();
 	void correctInlet();
 	void correctWall();
@@ -78,11 +92,16 @@ M_(Nc_ , Mc_),
 Umag_(Nc_ , Mc_),
 Riem1_(Nc_ , Mc_),
 Riem2_(Nc_ , Mc_),
+s2_(Nc_ , Mc_),
+s4_(Nc_ , Mc_),
+s2Csi_(Nc_ , Mc_),
+s2Eta_(Nc_ , Mc_),
+lambda_(Nc_ , Mc_),
 outputFile("Residuals"),
-rho_("rho"   , Nc_ , Mc_, mesh_, U_, V_, c_ , p_),  // N - 1 being the number of internal cells
-rhoU_("rhoU" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_),
-rhoV_("rhoV" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_),
-rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_)
+rho_("rho"   , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_),  // N - 1 being the number of internal cells
+rhoU_("rhoU" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_),
+rhoV_("rhoV" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_),
+rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_)
 {
 
 	initialize();
@@ -137,11 +156,35 @@ rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_)
 	U_.print();
 	V_.print();
 
+	// It should be executed inside computeDissipation() once every time step
+	computeSwitches();
+	
 	
 }
 
 Problem::~Problem(){}
 
+
+double Problem::interpolateLeft(Matrix<double>& flux , unsigned int i, unsigned int j) const
+{
+	
+	return 0.5 * (flux(i     , j - 1) + flux(i , j)) ;
+}
+
+double Problem::interpolateRight(Matrix<double>& flux , unsigned int i, unsigned int j) const
+{
+	return 0.5 * (flux(i     , j + 1) + flux(i , j)) ;
+}
+
+double Problem::interpolateTop(Matrix<double>& flux , unsigned int i, unsigned int j)	const
+{
+	return 0.5 * (flux(i - 1  , j   ) + flux(i , j)) ;
+}
+
+double Problem::interpolateBottom(Matrix<double>& flux , unsigned int i, unsigned int j) const
+{
+	return 0.5 * (flux(i + 1  , j   ) + flux(i , j)) ;
+}
 
 double Problem::deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
 {
@@ -176,7 +219,7 @@ double Problem::delta2Eta(const Matrix<double>& matrix, unsigned int i, unsigned
 	unsigned int ic = i + 2;
 	unsigned int jc = j + 2;
 	
-	return matrix(ic , jc + 1) - 2*matrix(ic , jc) + matrix(ic , jc + 1);
+	return matrix(ic , jc + 1) - 2*matrix(ic , jc) + matrix(ic , jc - 1);
 }
 
 void Problem::initialize()
@@ -224,6 +267,115 @@ void Problem::initialize()
 		
 	}
 	
+}
+
+void Problem::computeSwitches()
+{
+	for (unsigned int i = 0; i < Nci_; ++i)
+	{
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+			
+
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			s2Csi_(ic , jc) = nu2_ * delta2Csi(p_ , i , j)/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
+			s2Eta_(ic , jc) = nu2_ * delta2Eta(p_ , i , j)/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
+
+			
+		}
+			
+	}
+
+
+	// Interpolate switches at cell faces
+	// i goes from 1 to Nci_ - 1 because the switches at the north and south boundaries are supposed to be zero
+	for (unsigned int i = 0; i < Nci_ ; ++i)
+	{
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			std::cout << "i " << i << std::endl;
+			std::cout << "j " << j << std::endl;
+
+			s2_(ic , jc).e = interpolateRight(s2Eta_ , ic , jc);
+			s2_(ic  , jc).w = interpolateLeft(s2Eta_ , ic , jc);
+
+			if (i == 0)
+			{
+				s2_(ic , jc).n = 0;
+				s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
+			}
+			else if (i == Nci_ - 1)
+			{
+				s2_(ic , jc).s = 0;
+				s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
+
+			}
+			else
+			{
+				s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
+				s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
+
+			}
+
+			
+			s4_(ic , jc).e = std::max(0. , nu4_ - s2_(ic , jc).e );
+			s4_(ic , jc).w = std::max(0. , nu4_ - s2_(ic , jc).w );
+
+			if (i == 0)
+			{
+				s4_(ic , jc).n = 0;
+				s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
+
+			}
+			else if (i == Nci_ - 1)
+			{
+
+				s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
+				s4_(ic , jc).s = 0;
+
+			}
+			else
+			{
+				s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
+				s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
+			}
+
+
+			
+		}
+			
+	}
+
+
+	// Printing
+	std::cout << "sEta2_ \n" << std::endl; 
+	s2Eta_.print();
+	for (unsigned int i = 0; i < Nci_ ; ++i)
+	{
+		for (unsigned int j = 0; j < Mci_; ++j)
+		{
+
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
+
+			std::cout << "i " << i << std::endl;
+			std::cout << "j " << j << std::endl;
+			std::cout << "s2 " << std::endl;
+			s2_(ic , jc).print();
+			std::cout << "s4 " << std::endl;
+			s4_(ic , jc).print();
+
+			
+		}
+			
+	}
+
 }
 
 void Problem::computeFluxes()
@@ -275,7 +427,7 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 200;
+	unsigned int N = 50;
 	unsigned int iter = 0;
 
 
@@ -290,20 +442,20 @@ void Problem::solve()
 
 		rho_.computeResidual();
 		rho_.computeDissipation();
-		// rhoU_.computeResidual();
-		// rhoU_.computeDissipation();
-		// rhoV_.computeResidual();
-		// rhoV_.computeDissipation();
-		// rhoE_.computeResidual();
-		// rhoE_.computeDissipation();
+		rhoU_.computeResidual();
+		rhoU_.computeDissipation();
+		rhoV_.computeResidual();
+		rhoV_.computeDissipation();
+		rhoE_.computeResidual();
+		rhoE_.computeDissipation();
 		for (int i = 0; i < Nci_; ++i)
 		{
-			for (int j = 1; j < Mci_; ++j)
+			for (int j = 0; j < Mci_ ; ++j)
 			{
 				RungeKutta(rho_  , i , j);
-				// RungeKutta(rhoU_  , i , j);
-				// RungeKutta(rhoV_  , i , j);
-				// RungeKutta(rhoE_  , i , j);
+				RungeKutta(rhoU_  , i , j);
+				RungeKutta(rhoV_  , i , j);
+				RungeKutta(rhoE_  , i , j);
 				std::cout << "\n " << std::endl;
 				//double& Aij       = area(ic,jc);
 			}
@@ -312,48 +464,48 @@ void Problem::solve()
 		// std::cout << "After Runge-Kutta for rho " << std::endl;
 		// rho_.print();
 
-		rhoU_.computeResidual();
-		rhoU_.computeDissipation();
-		for (int i = 0; i < Nci_; ++i)
-		{
-			for (int j = 1; j < Mci_; ++j)
-			{
-				RungeKutta(rhoU_  , i , j);
-				std::cout << "\n " << std::endl;
-				//double& Aij       = area(ic,jc);
-			}
-		}
+		// rhoU_.computeResidual();
+		// rhoU_.computeDissipation();
+		// for (int i = 0; i < Nci_; ++i)
+		// {
+		// 	for (int j = 0; j < Mci_ ; ++j)
+		// 	{
+		// 		RungeKutta(rhoU_  , i , j);
+		// 		std::cout << "\n " << std::endl;
+		// 		//double& Aij       = area(ic,jc);
+		// 	}
+		// }
 		
-		rhoV_.computeResidual();
-		rhoV_.computeDissipation();
-		for (int i = 0; i < Nci_; ++i)
-		{
-			for (int j = 1; j < Mci_; ++j)
-			{
-				RungeKutta(rhoV_  , i , j);
+		// rhoV_.computeResidual();
+		// rhoV_.computeDissipation();
+		// for (int i = 0; i < Nci_; ++i)
+		// {
+		// 	for (int j = 0 ; j < Mci_ ; ++j)
+		// 	{
+		// 		RungeKutta(rhoV_  , i , j);
 
-				std::cout << "\n " << std::endl;
-				//double& Aij       = area(ic,jc);
-			}
-		}
+		// 		std::cout << "\n " << std::endl;
+		// 		//double& Aij       = area(ic,jc);
+		// 	}
+		// }
 
-		rhoE_.computeResidual();
-		rhoE_.computeDissipation();
-		for (int i = 0; i < Nci_; ++i)
-		{
-			for (int j = 1; j < Mci_; ++j)
-			{
-				RungeKutta(rhoE_  , i , j);
+		// rhoE_.computeResidual();
+		// rhoE_.computeDissipation();
+		// for (int i = 0; i < Nci_; ++i)
+		// {
+		// 	for (int j = 0 ; j < Mci_ ; ++j)
+		// 	{
+		// 		RungeKutta(rhoE_  , i , j);
 
-				std::cout << "\n " << std::endl;
-				//double& Aij       = area(ic,jc);
-			}
-		}
+		// 		std::cout << "\n " << std::endl;
+		// 		//double& Aij       = area(ic,jc);
+		// 	}
+		// }
 				
 		
 
 		correctProperties();
-		
+		computeSwitches();
 		computeFluxes();
 
 		
@@ -531,8 +683,8 @@ void Problem::correctTimeStep()
 
 			double lambdaW = 0.5 * (U_(ic , jc) + U_(ic , jc - 1)) + c_(ic , jc);
 			double lambdaE = 0.5 * (U_(ic , jc) + U_(ic , jc + 1)) + c_(ic , jc);
-			double lambdaN = 0.5 * (U_(ic + 1 , jc) + U_(ic , jc  )) + c_(ic , jc);
-			double lambdaS = 0.5 * (U_(ic     , jc) + U_(ic  - 1, jc  )) + c_(ic , jc);
+			double lambdaN = 0.5 * (U_(ic - 1 , jc) + U_(ic , jc  )) + c_(ic , jc);
+			double lambdaS = 0.5 * (U_(ic + 1 , jc) + U_(ic , jc  )) + c_(ic , jc);
 			double sumLambda = lambdaW + lambdaE + lambdaN + lambdaS;
 			double minDtij = mesh_.area_(ic , jc)/(sumLambda);
 
@@ -558,23 +710,28 @@ void Problem::correctInlet()
 	for (unsigned int ic = 1; ic < Nc_-1; ++ic)
 	{
 		// unsigned int ic = i + 2;
+		unsigned int jb = 2;
+		// Second option
+
+		// First option
+		// p_(ic , 1) = pInf_;
 		
-		Riem1_(ic , 2) = Riem1_inf;
-		Riem2_(ic , 2) = Umag_(ic , 3) - 2/(gamma_- 1)*c_(ic , 3);
+		Riem1_(ic , jb) = Riem1_inf;
+		Riem2_(ic , jb) = Umag_(ic , 2) - 2/(gamma_- 1)*c_(ic , 2); // From internal domain
 		
 
-		Umag_(ic , 2) = 0.5 * (Riem1_(ic , 2) + Riem2_(ic , 2));
-		U_(ic , 2) = Umag_(ic , 2);
-		c_(ic , 2) = 0.25 * (gamma_ - 1)*(Riem1_(ic, 2) - Riem2_(ic , 2));
-		M_(ic , 2) = Umag_(ic , 2)/c_(ic, 2);
-		p_(ic , 2) = pInf_/pow((1 + 0.5*(gamma_ - 1) * M_(ic,2) * M_(ic,2)), gamma_/(gamma_ - 1));
-		rho_(ic , 2) = gamma_ * p_(ic , 2)/c_(ic , 1)/c_(ic , 2);
+		Umag_(ic , jb) = 0.5 * (Riem1_(ic , jb) + Riem2_(ic , jb));
+		U_(ic , jb) = Umag_(ic , jb);
+		c_(ic , jb) = 0.25 * (gamma_ - 1)*(Riem1_(ic, jb) - Riem2_(ic , jb));
+		M_(ic , jb) = Umag_(ic , jb)/c_(ic, jb);
+		p_(ic , jb) = pInf_/pow((1 + 0.5*(gamma_ - 1) * M_(ic,1) * M_(ic,1)), gamma_/(gamma_ - 1));
+		rho_(ic , jb) = gamma_ * p_(ic , jb)/c_(ic , jb)/c_(ic , jb);
 
 
 		// Correct state vector
-		rhoU_(ic , 2) = rho_(ic , 2)*U_(ic , 2);
-		rhoV_(ic , 2) = rho_(ic , 2)*V_(ic , 2);
-		rhoE_(ic , 2) = p_(ic , 2)/(gamma_ - 1) + 0.5 * Umag_(ic , 2)*Umag_(ic , 2);
+		rhoU_(ic , jb) = rho_(ic , jb)*U_(ic , jb);
+		rhoV_(ic , jb) = rho_(ic , jb)*V_(ic , jb);
+		rhoE_(ic , jb) = p_(ic , jb)/(gamma_ - 1) + 0.5 * rho_(ic , jb) * Umag_(ic , jb)*Umag_(ic , jb);
 	}
 
 }
@@ -631,11 +788,10 @@ void Problem::correctOutlet()
 		
 		p_(ic , Jcmax - 1) = pInf_*pRatio;
 		p_(ic , Jcmax    ) = pInf_*pRatio;
-		
+
+		//Zero gradient
 		rho_(ic , Jcmax - 1) = 2*rho_(ic , Jcmax - 2) - rho_(ic , Jcmax - 3);
 		rho_(ic , Jcmax    ) = rho_(ic , Jcmax - 1);
-
-		//V_(ic , Jmax - 1) = V_(ic , Jmax ); 
 
 		rhoU_(ic , Jcmax - 1) = 2*rhoU_(ic , Jcmax - 2) - rhoU_(ic , Jcmax - 3);
 		rhoU_(ic , Jcmax    ) = rhoU_(ic , Jcmax - 1);
@@ -649,12 +805,35 @@ void Problem::correctOutlet()
 		U_(ic , Jcmax - 1) = rhoU_(ic , Jcmax - 1)/rho_(ic , Jcmax - 1);
 		U_(ic , Jcmax    ) = U_(ic , Jcmax - 1);
 
-		rhoE_(ic , Jcmax - 1) = p_(ic , Jcmax - 1)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax  -1) * (U_(ic , Jcmax - 1) * U_(ic , Jcmax - 1) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 1));
+		Umag_(ic , Jcmax - 1) = sqrt(U_(ic , Jcmax - 1) * U_(ic , Jcmax - 2) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 2));
+
+		rhoE_(ic , Jcmax - 1) = p_(ic , Jcmax - 1)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax  -1) * Umag_(ic , Jcmax - 1) * Umag_(ic , Jcmax - 1);
 		rhoE_(ic , Jcmax    ) = rhoE_(ic , Jcmax - 1);
 
 
 		c_(ic , Jcmax - 1) = sqrt(gamma_ * p_(ic , Jcmax - 1) / rho_(ic , Jcmax - 1));
 		c_(ic , Jcmax    ) = sqrt(gamma_ * p_(ic , Jcmax    ) / rho_(ic , Jcmax    ));
+		
+
+
+		// rho_(ic , Jcmax - 1) = rho_(ic , Jcmax - 2);
+		// rho_(ic , Jcmax    ) = rho_(ic , Jcmax - 1);
+
+		// rhoU_(ic , Jcmax - 1) = rhoU_(ic , Jcmax - 2);
+		// rhoU_(ic , Jcmax    ) = rhoU_(ic , Jcmax - 1);
+
+		// rhoV_(ic , Jcmax - 1) = rhoV_(ic , Jcmax - 2);
+		// rhoV_(ic , Jcmax    ) = rhoV_(ic , Jcmax - 1);
+
+		// rhoE_(ic , Jcmax - 1) = rhoE_(ic , Jcmax - 2);
+		// rhoE_(ic , Jcmax    ) = rhoE_(ic , Jcmax - 1);
+
+		// c_(ic , Jcmax - 1) = sqrt(gamma_ * p_(ic , Jcmax - 1) / rho_(ic , Jcmax - 1));
+		// c_(ic , Jcmax    ) = sqrt(gamma_ * p_(ic , Jcmax    ) / rho_(ic , Jcmax    ));
+
+		//V_(ic , Jmax - 1) = V_(ic , Jmax ); 
+
+
 
 
 
@@ -669,12 +848,12 @@ void Problem::correctOutlet()
 
 void Problem::correctProperties()
 {
-	for (int i = 0; i < Nci_; ++i)
+	for (int ic = 1; ic < Nc_ - 1; ++ic)
 	{
-		for (int j = 0; j < Mci_; ++j)
+		for (int jc = 1; jc < Mc_ - 1; ++jc)
 		{
-			unsigned int ic = i + 2;
-			unsigned int jc = j + 2;
+			// unsigned int ic = i + 2;
+			// unsigned int jc = j + 2;
 
 			U_(ic , jc) = rhoU_(ic , jc)/rho_(ic , jc);
 			V_(ic , jc) = rhoV_(ic , jc)/rho_(ic , jc);
@@ -685,4 +864,6 @@ void Problem::correctProperties()
 		}
 	}
 }
+
+
 
