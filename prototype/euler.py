@@ -220,23 +220,18 @@ class Euler(object):
 		pInf = self.pInf
 
 		print("Correct outlet")
-		p[-2] = pInf*self.pRatio
-		p[-1] = p[-2]
+		
+		rho[-1] = 2*rho[-2] - rho[-3]
 
-		rho[-2] = 2*rho[-3] - rho[-1]
-		rho[-1] = rho[-2]
+		rhoU[-1] = 2*rhoU[-2] - rhoU[-3]
 
-		rhoU[-2] = 2*rhoU[-3] - rhoU[-1]
-		rhoU[-1] = rhoU[-2]
+		rhoE[-1] = pInf/gamma_1 + 0.5 * rho[-1] * u[-1]**2
 
-		rhoE[-2] = p[-1]/gamma_1 + 0.5 * rho[-2] * u[-2]**2
-		rhoE[-1] = rhoE[-2] 
+		p[-1] = pInf
 
-		c[-2] = np.sqrt(gamma * p[-2] / rho[-2])
 		c[-1] = np.sqrt(gamma * p[-1] / rho[-1])
 
-		u[-2] = rhoU[-2]/rho[-2]
-		u[-1] = u[-2]
+		u[-1] = rhoU[-1]/rho[-1]
 
 
 	def correctFields(self):
@@ -300,14 +295,21 @@ class Euler(object):
 	def solve(self):
 		#Correct boundary
 		
+		self.computeFluxes()
 		self.correctInlet()
 		self.correctOutlet()
+
+		self.rho.computeResidual()
+		self.rhoU.computeResidual()
+		self.rhoE.computeResidual()
+
 		# loop over internal field
-		for i in range(len(self.rho.R.p)):
+		for i in range(len(self.rho.R.p) - 1):
 			self.RungeKutta(self.rho , i)
 			self.RungeKutta(self.rhoU , i)
 			self.RungeKutta(self.rhoE , i)
 
+		self.correctFields()
 		self.correctOutlet()
 		self.correctInlet()
 
@@ -318,43 +320,6 @@ class Euler(object):
 	
 
 problem = Euler(4 ,  1e-9 , 1 , 0.1 , 0.3 , 1e5 , 0.9 , 1)
-
-print(problem.rho.R.w)
-
-problem.rho.print()
-problem.rhoU.print()
-problem.rhoE.print()
-problem.Riem1.print()
-print()
-print()
-
-problem.correctInlet()	
-problem.rho.print()
-problem.rhoU.print()
-problem.rhoE.print()
-problem.Riem1.print()
-print()
-
-problem.correctOutlet()	
-problem.rho.print()
-problem.rhoU.print()
-problem.rhoE.print()
-problem.Riem1.print()
-print()
-
-problem.correctFields()
-problem.computeFluxes()
-print()
-
-problem.rho.printFlux()
-
-print(problem.rho.R.w)
-print(problem.rho.R.e)
-problem.rho.computeResidual()
-print(problem.rho.R.w)
-print(problem.rho.R.e)
-print(problem.rho.R.p)
-
 
 problem.rho.print()
 problem.solve()
