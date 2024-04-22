@@ -1,5 +1,16 @@
 import numpy as np
 
+def delta2(q , i ):
+	
+	return  q[i + 1] - 2 * q[i] + q[i - 1]
+
+def interpolateLeft(q , i ):
+	
+	return 0.5 * (q[i] + q[i - 1])
+
+def interpolateRight(q, i ):
+	return 0.5 * (q[i] + q[i + 1])
+
 class variable(object):
 	"""docstring for field"""
 	def __init__(self, name : str  , Nx, Ny , top, bottom, left, right ):
@@ -67,18 +78,39 @@ class variable1D(object):
 		print(self.name ,self.field)
 		return 
 
-	def interpolateLeft(self , i ):
-		return 0.5 * (self.field[i] + self.field[i - 1])
+	def printFlux(self):
+		print(self.name + " flux: " ,self.flux_f)
+		return 
 
-	def interpolateRight(self , i ):
-		return 0.5 * (self.field[i] + self.field[i + 1])
+	
 
 	def computeResidualij(self , i):
-		self.R.w[i] = - self.interpolateLeft(i) * 0.1  # face length is hardcoded
-		self.R.e[i] =   self.interpolateRight(i) * 0.1
+		ic = i + 1
+		self.R.w[i] = - interpolateLeft(self.flux_f , ic) * 0.1  # face length is hardcoded
+		self.R.e[i] =   interpolateRight(self.flux_f , ic) * 0.1
+
 
 		self.R.p[i] = self.R.w[i] + self.R.e[i]
 
+	def computeResidual(self):
+		
+		for i in range(len(self.R.p)):
+			self.computeResidualij(i)
+
+
+
+
+
+	def computeFluxij(self , u , p , i):
+		
+		if self.name == "rhoU":
+			self.flux_f[i] = self.field[i] * u[i] + p[i]
+		elif self.name == "rhoE":
+			self.flux_f[i] = self.field[i] * u[i] + p[i] * u[i]
+		else :
+			self.flux_f[i] = self.field[i] * u[i]
+	
+	
 	def computeFlux(self , u, p):
 		
 		if self.name == "rhoU":
@@ -87,6 +119,8 @@ class variable1D(object):
 			self.flux_f = self.field * u + p * u
 		else :
 			self.flux_f = self.field * u
+
+
 
 class coeff(object):
 
@@ -113,6 +147,11 @@ class Euler(object):
 		self.Ly = Ly
 		self.Deltax = self.Lx/self.Nx  # Deltax and Deltay are default sizes of the CVs
 		self.Deltay = self.Ly/self.Ny
+
+		self.alpha1 = 0.25
+		self.alpha2 = 0.333
+		self.alpha3 = 0.75
+		self.alpha4 = 1.
 
 		self.pInf = pInf
 		self.rhoInf = rhoInf
@@ -234,7 +273,45 @@ class Euler(object):
 		print(self.rho.flux_f)
 		print(self.rhoU.flux_f)
 		print(self.rhoE.flux_f)
-	
+
+	def RungeKutta(self , variable , i):
+		
+		alpha1 = self.alpha1
+		alpha2 = self.alpha2
+		alpha3 = self.alpha3
+		alpha4 = self.alpha4
+		
+		dt = 1e-5
+
+		ic = i + 1
+		variable0 = variable[i].copy()
+
+		variable[ic] = variable0 - alpha4 * dt / (self.Lx/self.Nx) * variable.R.p[i]   # Only one step for testing
+		variable.computeFluxij(self.u , self.p , ic)
+		variable.computeResidualij(i)
+
+		# variable[i] = variable0 - alpha2 * dt / (self.Lx/self.Nx) * variable.R.p[i]
+		# variable[i] = variable0 - alpha3 * dt / (self.Lx/self.Nx) * variable.R.p[i]
+		# variable[i] = variable0 - alpha4 * dt / (self.Lx/self.Nx) * variable.R.p[i]
+
+		return variable
+
+
+	def solve(self):
+		#Correct boundary
+		
+		self.correctInlet()
+		self.correctOutlet()
+		# loop over internal field
+		for i in range(len(self.rho.R.p)):
+			self.RungeKutta(self.rho , i)
+			self.RungeKutta(self.rhoU , i)
+			self.RungeKutta(self.rhoE , i)
+
+		self.correctOutlet()
+		self.correctInlet()
+
+		
 	
 	
 		
@@ -268,6 +345,22 @@ print()
 problem.correctFields()
 problem.computeFluxes()
 print()
+
+problem.rho.printFlux()
+
+print(problem.rho.R.w)
+print(problem.rho.R.e)
+problem.rho.computeResidual()
+print(problem.rho.R.w)
+print(problem.rho.R.e)
+print(problem.rho.R.p)
+
+
+problem.rho.print()
+problem.solve()
+problem.rho.print()
+
+
 
 
 
