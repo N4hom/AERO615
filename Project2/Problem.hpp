@@ -42,13 +42,10 @@ public:
 
 	std::ofstream outputFile;
 
-	double deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
-	double deltaEta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
+	
 	double delta2Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
 	double delta2Eta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
-	double delta3Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j);
-	double delta3Eta(const Matrix<double>& matrix, unsigned int i, unsigned int j);
-
+	
 	double interpolateLeft  (Matrix<double>& flux , unsigned int i, unsigned int j) const;
 	double interpolateRight (Matrix<double>& flux , unsigned int i, unsigned int j) const;
 	double interpolateTop   (Matrix<double>& flux , unsigned int i, unsigned int j) const;
@@ -63,6 +60,7 @@ public:
 	void correctPeriodic();
 	void correctOutlet();
 	void correctProperties();
+	void correctPropertiesij(unsigned int i , unsigned int j);
 	void correctTimeStep();
 	void R();
 	// Matrix<double> R(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
@@ -158,6 +156,14 @@ rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_)
 
 	// It should be executed inside computeDissipation() once every time step
 	computeSwitches();
+	rho_.computeResidual();
+	rhoU_.computeResidual();
+	rhoV_.computeResidual();
+	rhoE_.computeResidual();
+	rho_.computeDissipation();
+	rhoU_.computeDissipation();
+	rhoV_.computeDissipation();
+	rhoE_.computeDissipation();
 	
 	
 }
@@ -186,25 +192,7 @@ double Problem::interpolateBottom(Matrix<double>& flux , unsigned int i, unsigne
 	return 0.5 * (flux(i + 1  , j   ) + flux(i , j)) ;
 }
 
-double Problem::deltaCsi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
-{
-	unsigned int ic = i + 2;
-	unsigned int jc = j + 2;
-	double matrixTop = 0.5 * (matrix(ic , jc) + matrix(ic + 1, jc));
-	double matrixBottom = 0.5 * (matrix(ic , jc) + matrix(ic - 1, jc));
 
-	return matrixTop - matrixBottom;
-}
-
-double Problem::deltaEta(const Matrix<double>& matrix, unsigned int i, unsigned int j)
-{
-	unsigned int ic = i + 2;
-	unsigned int jc = j + 2;
-	double matrixRight = 0.5 * (matrix(ic , jc) + matrix(ic , jc + 1));
-	double matrixLeft = 0.5 * (matrix(ic , jc) + matrix(ic , jc - 1));
-
-	return matrixRight - matrixLeft;
-}
 
 double Problem::delta2Csi(const Matrix<double>& matrix, unsigned int i, unsigned int j)
 {
@@ -233,10 +221,10 @@ void Problem::initialize()
 		{
 			// unsigned ic = i + 2;
 			// unsigned jc = j + 2;
-			rho_(ic , jc) = rhoInf_;
-			p_(ic , jc) = pInf_;
+			rho_(ic , jc) = rhoInf_*pRatio;
+			p_(ic , jc) = pInf_*pRatio;
 			c_(ic , jc) = cInf_;
-			U_(ic , jc) = Uinf_;
+			U_(ic , jc) = Minf_ * cInf_;
 			rhoU_(ic , jc) = rho_(ic , jc) * U_(ic , jc);
 			rhoV_(ic , jc) = rho_(ic , jc) * V_(ic , jc);
 			Umag_(ic , jc) = sqrt(U_(ic , jc)*U_(ic , jc) + V_(ic , jc) * V_(ic , jc));
@@ -244,28 +232,28 @@ void Problem::initialize()
 		}
 	}
 
-	std::cout << "Initializing inlet " << std::endl;
-	//Initialize inlet boundary
-	for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
-	{
-		for (int j = 0 ; j < 3; ++j)
-		{
+	// std::cout << "Initializing inlet " << std::endl;
+	// //Initialize inlet boundary
+	// for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
+	// {
+	// 	for (int j = 0 ; j < 3; ++j)
+	// 	{
 				
-			// unsigned ic = i + 2; 
-			// I don't use jc here because there's no need to since I'm setting the boundary conditions to
-			// the initial values. Only the first two columns of cells are touched.
+	// 		// unsigned ic = i + 2; 
+	// 		// I don't use jc here because there's no need to since I'm setting the boundary conditions to
+	// 		// the initial values. Only the first two columns of cells are touched.
 
-			rho_(ic , j)  = rhoInf_;
-			p_(ic , j)    = pInf_;
-			c_(ic , j)    = cInf_;
-			U_(ic , j )   = Minf_ * cInf_;
-			rhoU_(ic , j) = rho_(ic , j) * U_(ic , j);
-			rhoV_(ic , j) = rho_(ic , j) * V_(ic , j);
-			Umag_(ic , j) = sqrt(U_(ic , j)*U_(ic , j) + V_(ic , j) * V_(ic , j));
-			rhoE_(ic , j) = p_(ic , j) / (gamma_ - 1) + 0.5 * rho_(ic , j) * Umag_(ic , j)*Umag_(ic , j);
-		}
+	// 		rho_(ic , j)  = rhoInf_;
+	// 		p_(ic , j)    = pInf_;
+	// 		c_(ic , j)    = cInf_;
+	// 		U_(ic , j )   = Minf_ * cInf_;
+	// 		rhoU_(ic , j) = rho_(ic , j) * U_(ic , j);
+	// 		rhoV_(ic , j) = rho_(ic , j) * V_(ic , j);
+	// 		Umag_(ic , j) = sqrt(U_(ic , j)*U_(ic , j) + V_(ic , j) * V_(ic , j));
+	// 		rhoE_(ic , j) = p_(ic , j) / (gamma_ - 1) + 0.5 * rho_(ic , j) * Umag_(ic , j)*Umag_(ic , j);
+	// 	}
 		
-	}
+	// }
 	
 }
 
@@ -280,8 +268,8 @@ void Problem::computeSwitches()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-			s2Csi_(ic , jc) = nu2_ * delta2Csi(p_ , i , j)/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
-			s2Eta_(ic , jc) = nu2_ * delta2Eta(p_ , i , j)/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
+			s2Csi_(ic , jc) = nu2_ * std::abs(delta2Csi(p_ , i , j))/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
+			s2Eta_(ic , jc) = nu2_ * std::abs(delta2Eta(p_ , i , j))/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
 
 			
 		}
@@ -299,8 +287,6 @@ void Problem::computeSwitches()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-			std::cout << "i " << i << std::endl;
-			std::cout << "j " << j << std::endl;
 
 			s2_(ic , jc).e = interpolateRight(s2Eta_ , ic , jc);
 			s2_(ic  , jc).w = interpolateLeft(s2Eta_ , ic , jc);
@@ -354,26 +340,43 @@ void Problem::computeSwitches()
 
 
 	// Printing
-	std::cout << "sEta2_ \n" << std::endl; 
-	s2Eta_.print();
-	for (unsigned int i = 0; i < Nci_ ; ++i)
+	if (DEBUG)
 	{
-		for (unsigned int j = 0; j < Mci_; ++j)
+		// Print s2
+		for (unsigned int i = 0; i < Nci_ ; ++i)
 		{
+			for (unsigned int j = 0; j < Mci_; ++j)
+			{
 
-			unsigned int ic = i + 2;
-			unsigned int jc = j + 2;
+				unsigned int ic = i + 2;
+				unsigned int jc = j + 2;
 
-			std::cout << "i " << i << std::endl;
-			std::cout << "j " << j << std::endl;
-			std::cout << "s2 " << std::endl;
-			s2_(ic , jc).print();
-			std::cout << "s4 " << std::endl;
-			s4_(ic , jc).print();
-
-			
+				std::cout << "i " << i << std::endl;
+				std::cout << "j " << j << std::endl;
+				std::cout << "s2 " << std::endl;
+				s2_(ic , jc).print();
+				
+			}
+				
 		}
-			
+
+		// Print s4
+		for (unsigned int i = 0; i < Nci_ ; ++i)
+		{
+			for (unsigned int j = 0; j < Mci_; ++j)
+			{
+
+				unsigned int ic = i + 2;
+				unsigned int jc = j + 2;
+
+				std::cout << "i " << i << std::endl;
+				std::cout << "j " << j << std::endl;
+				std::cout << "s4 " << std::endl;
+				s4_(ic , jc).print();
+			}
+				
+		}
+		/* code */
 	}
 
 }
@@ -427,17 +430,20 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 50;
+	unsigned int N =80;
 	unsigned int iter = 0;
 
 
 	while(iter < N)
 	{
-		std::cout << "----------------------" << std::endl;
-		std::cout << "iter " << iter << std::endl;
+		if (DEBUG)
+		{
+			std::cout << "-------------------------------------------------------------------" << std::endl;
+			std::cout << "iter " << iter << std::endl;
+			std::cout << "dt " << dt_ << std::endl;
+		}
 			
 		correctTimeStep();
-		std::cout << "dt " << dt_ << std::endl;
 		
 
 		rho_.computeResidual();
@@ -450,72 +456,59 @@ void Problem::solve()
 		rhoE_.computeDissipation();
 		for (int i = 0; i < Nci_; ++i)
 		{
-			for (int j = 0; j < Mci_ ; ++j)
+			for (int j = 0; j < Mci_  ; ++j)
 			{
+				unsigned int ic = i + 2;
+				unsigned int jc = j + 2;
+
+				rho_.phiPrev()(ic,jc) = rho_(ic , jc);
 				RungeKutta(rho_  , i , j);
+				rho_.print();
 				RungeKutta(rhoU_  , i , j);
+				rhoU_.print();
 				RungeKutta(rhoV_  , i , j);
+				rhoV_.print();
 				RungeKutta(rhoE_  , i , j);
+				rhoE_.print();
 				std::cout << "\n " << std::endl;
 				//double& Aij       = area(ic,jc);
 			}
 		}
 
-		// std::cout << "After Runge-Kutta for rho " << std::endl;
-		// rho_.print();
-
-		// rhoU_.computeResidual();
-		// rhoU_.computeDissipation();
-		// for (int i = 0; i < Nci_; ++i)
-		// {
-		// 	for (int j = 0; j < Mci_ ; ++j)
-		// 	{
-		// 		RungeKutta(rhoU_  , i , j);
-		// 		std::cout << "\n " << std::endl;
-		// 		//double& Aij       = area(ic,jc);
-		// 	}
-		// }
 		
-		// rhoV_.computeResidual();
-		// rhoV_.computeDissipation();
-		// for (int i = 0; i < Nci_; ++i)
-		// {
-		// 	for (int j = 0 ; j < Mci_ ; ++j)
-		// 	{
-		// 		RungeKutta(rhoV_  , i , j);
-
-		// 		std::cout << "\n " << std::endl;
-		// 		//double& Aij       = area(ic,jc);
-		// 	}
-		// }
-
-		// rhoE_.computeResidual();
-		// rhoE_.computeDissipation();
-		// for (int i = 0; i < Nci_; ++i)
-		// {
-		// 	for (int j = 0 ; j < Mci_ ; ++j)
-		// 	{
-		// 		RungeKutta(rhoE_  , i , j);
-
-		// 		std::cout << "\n " << std::endl;
-		// 		//double& Aij       = area(ic,jc);
-		// 	}
-		// }
+		rho_.print();
+		rho_.printFlux_f();
+		rho_.printFlux_g();
+		rhoU_.print();
+			// std::cout << "rhoV " << std::endl;
+		rhoV_.print();
+			// std::cout << "rhoE " << std::endl;
+		rhoE_.print();
+		std::cout << "U " << std::endl;
+		U_.print();
+		std::cout << "V " << std::endl;
+		V_.print();
+		std::cout << "p " << std::endl;
+		p_.print();
+		std::cout << "c " << std::endl;
+		c_.print();
 				
 		
-
 		correctProperties();
-		computeSwitches();
-		computeFluxes();
-
-		
 		correctWall();
 		correctInlet();
 		correctOutlet();
 
+		computeSwitches();
+		computeFluxes();
+
+		
+
 		std::cout << "End of time step " << std::endl;
 		if (DEBUG)
 		{
+			outputFile <<  rho_.computeError() << std::endl;
+
 			rho_.print();
 			rho_.printFlux_f();
 			rho_.printFlux_g();
@@ -537,8 +530,26 @@ void Problem::solve()
 			// std::cout << "M " << std::endl;
 			// M_.print();
 
-			outputFile <<  rho_.computeError() << std::endl;
 		}
+		else
+		{
+			outputFile <<  rho_.computeError() << std::endl;
+			rho_.print();
+			rhoU_.print();
+			rhoV_.print();
+			rhoE_.print();
+
+			std::cout << "U " << std::endl;
+			U_.print();
+			std::cout << "V " << std::endl;
+			V_.print();
+			std::cout << "p " << std::endl;
+			p_.print();
+			std::cout << "c " << std::endl;
+			c_.print();
+		}
+
+		std::cout << "--------------------------------------------------------------------------------" << std::endl;
 
 		iter++;
 	}
@@ -551,22 +562,24 @@ void Problem::solve()
 
 
 void Problem::RungeKutta(Variable& variable, int i , int j )
-{
-	std::cout << "\n " << std::endl;
-	std::cout << "Runge-Kutta " << "variable " << variable.name() << std::endl;
-	std::cout << "i " << i << std::endl;
-	std::cout << "j " << j << std::endl;
-	std::cout << "R "  <<  std::endl;
-	variable.R().print();
-	variable.print() ;
-	variable.printFlux_f() ;
-	variable.printFlux_g() ;
+{	
+	if (DEBUG)
+	{std::cout << "\n " << std::endl;
+		std::cout << "Runge-Kutta " << "variable " << variable.name() << std::endl;
+		std::cout << "i " << i << std::endl;
+		std::cout << "j " << j << std::endl;
+		// std::cout << "R "  <<  std::endl;
+		variable.R().print();
+		variable.print() ;
+		variable.printFlux_f() ;
+		variable.printFlux_g() ;
+	}
 
 	const double alpha1 = 0.25, alpha2 = 0.5 , alpha3 = 0.33333, alpha4 = 1.;
-	std::cout << "alpha1 " << alpha1 << std::endl;
-	std::cout << "alpha2 " << alpha2 << std::endl;
-	std::cout << "alpha3 " << alpha3 << std::endl;
-	std::cout << "alpha4 " << alpha4 << std::endl;
+	// std::cout << "alpha1 " << alpha1 << std::endl;
+	// std::cout << "alpha2 " << alpha2 << std::endl;
+	// std::cout << "alpha3 " << alpha3 << std::endl;
+	// std::cout << "alpha4 " << alpha4 << std::endl;
 
 	Matrix<double>& area = mesh_.area_;
 
@@ -577,94 +590,139 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	double& Rij       = variable.R()(i , j);
 	double  Dij0      = variable.D()(i , j);
 	double  variable0 = variable(ic , jc);
-
+	double dtByAij = dt_/Aij;
 	// At the next RK step the fluxes must be updated to calculate the new residual. It will be changed only the flux and residual at the cell (ic jc) or (i j)
 	
 	// Step 1
+	// std::cout << "dt_ " << dt_ << std::endl;	
+	// std::cout << "Rij " << Rij << std::endl;
+	// std::cout << "Aij " << Aij << std::endl;	
 	std::cout << "Step 1 \n" << std::endl;
-	std::cout << "variable0 = " << variable0 << std::endl;
-	std::cout << "dt_ " << dt_ << std::endl;	
-	std::cout << "Rij " << Rij << std::endl;
 	std::cout << "Dij0 " << Dij0 << std::endl;	
-	std::cout << "Aij " << Aij << std::endl;	
-	variable(ic , jc) = variable0 - alpha1 * dt_/Aij * (Rij - Dij0);
-	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
-	std::cout << "variable0 " << variable0	<< std::endl;
-	std::cout << "alpha1 * dt_/Aij * (Rij - Dij0) " << alpha1 * dt_/Aij * (Rij - Dij0) << std::endl;
-	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
+	std::cout << "variable0 = " << variable0 << std::endl;
+
+
+	variable(ic , jc) = variable0 - alpha1 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f( ic , jc);
 	variable.correctFlux_g( ic , jc);
-	Rij = variable.computeResidualij(i , j);
 
-	std::cout << "\n";
+	// if (i == 0 || i == Nci_ - 1)
+	// {
+	// 	correctWall();
+	// }
+	
+	// if (j == Mci_ - 1 )
+	// {
+	// 	correctOutlet();
+	// }
+	// else if (j == 0)
+	// {
+	// 	correctInlet();
+	// }
+
+
 
 	variable.print() ;
 	variable.printFlux_f() ;
 	variable.printFlux_g() ;
-	std::cout << "R "  <<  std::endl;
+
+	Rij = variable.computeResidualij(i , j);
+	
 	variable.R().print();
+	
+	// std::cout << "\n";
+
+	// variable.print() ;
+	// variable.printFlux_f() ;
+	// variable.printFlux_g() ;
+	// std::cout << "R "  <<  std::endl;
+	// variable.R().print();
 
 	std::cout << "\n";
 	// Step 2
 	std::cout << "Step 2 \n" << std::endl;
-	std::cout << "Rij " << Rij << std::endl;	
+	// std::cout << "Rij " << Rij << std::endl;	
 	std::cout << "Dij0 " << Dij0 << std::endl;	
-	std::cout << "Aij " << Aij << std::endl;	
-	variable(ic , jc) = variable0 - alpha2 * dt_/Aij * (Rij - Dij0);
-	std::cout << "variable0 " << variable0	<< std::endl;
-	std::cout << "alpha2 * dt_/Aij * (Rij - Dij0) " << alpha2 * dt_/Aij * (Rij - Dij0) << std::endl;
-	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
+	// std::cout << "Aij " << Aij << std::endl;	
+	variable(ic , jc) = variable0 - alpha2 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f(ic , jc);
 	variable.correctFlux_g(ic , jc);
-	Rij = variable.computeResidualij(i , j);
-
-	std::cout << "\n";
-
+	// if (i == 0 || i == Nci_ - 1)
+	// {
+	// 	correctWall();
+	// }
+	
+	// if (j == Mci_ - 1 )
+	// {
+	// 	correctOutlet();
+	// }
+	// else if (j == 0)
+	// {
+	// 	correctInlet();
+	// }
 	variable.print() ;
 	variable.printFlux_f() ;
 	variable.printFlux_g() ;
-	std::cout << "R "  <<  std::endl;
+	
+	Rij = variable.computeResidualij(i , j);
 	variable.R().print();
+	//std::cout << "\n";
+
+	// variable.print() ;
+	// variable.printFlux_f() ;
+	// variable.printFlux_g() ;
+	// std::cout << "R "  <<  std::endl;
+	// variable.R().print();
 
 	std::cout << "\n";
 
 	// Step 3
 	std::cout << "Step 3 \n" << std::endl;
-	std::cout << "Rij " << Rij << std::endl;	
-	std::cout << "Dij0 " << Dij0 << std::endl;	
-	std::cout << "Aij " << Aij << std::endl;	
-	variable(ic , jc) = variable0 - alpha3 * dt_/Aij * (Rij - Dij0);
-	std::cout << "variable0 " << variable0	<< std::endl;
-	std::cout << "alpha3 * dt_/Aij * (Rij - Dij0) "  << alpha3 << " * " << dt_/Aij << " * "  <<  Rij - Dij0 << " = "<< alpha3 * dt_/Aij * (Rij - Dij0) << std::endl;
-	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
-
+	// std::cout << "Rij " << Rij << std::endl;	
+	// std::cout << "Dij0 " << Dij0 << std::endl;	
+	// std::cout << "Aij " << Aij << std::endl;	
+	variable(ic , jc) = variable0 - alpha3 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f(ic , jc);
 	variable.correctFlux_g(ic , jc);
-	Rij = variable.computeResidualij(i , j);
-
-	std::cout << "\n";
-
+	// if (i == 0 || i == Nci_ - 1)
+	// {
+	// 	correctWall();
+	// }
+	
+	// if (j == Mci_ - 1 )
+	// {
+	// 	correctOutlet();
+	// }
+	// else if (j == 0)
+	// {
+	// 	correctInlet();
+	// }
 	variable.print() ;
 	variable.printFlux_f() ;
 	variable.printFlux_g() ;
-	std::cout << "R "  <<  std::endl;
-	variable.R().print();
 
+	Rij = variable.computeResidualij(i , j);
+	variable.R().print();
 	std::cout << "\n";
+
+	// variable.print() ;
+	// variable.printFlux_f() ;
+	// variable.printFlux_g() ;
+	//std::cout << "R "  <<  std::endl;
+	//variable.R().print();
+
+	//std::cout << "\n";
 
 	// Step 4
 	std::cout << "Step 4 \n" << std::endl;
-	std::cout << "Rij " << Rij << std::endl;	
-	std::cout << "Dij0 " << Dij0 << std::endl;	
-	std::cout << "Aij " << Aij << std::endl;	
-	variable(ic , jc) = variable0 - alpha4 * dt_/Aij * (Rij - Dij0);
-	std::cout << "variable0 " << variable0	<< std::endl;
-	std::cout << "alpha4 * dt_/Aij * (Rij - Dij0) " << alpha4 * dt_/Aij * (Rij - Dij0) << std::endl;
-	std::cout << "updated variable " << variable(ic , jc)  << std::endl;
-	variable.correctFlux_f(ic , jc);
-	variable.correctFlux_g(ic , jc);
-	Rij = variable.computeResidualij(i , j);
+	
+	variable(ic , jc) = variable0 - alpha4 * dtByAij * (Rij - Dij0);
+	
+	variable.print() ;
+	variable.printFlux_f() ;
+	variable.printFlux_g() ;
 
+	
 	std::cout << "\n " << std::endl;
 
 }
@@ -683,10 +741,10 @@ void Problem::correctTimeStep()
 
 			double lambdaW = 0.5 * (U_(ic , jc) + U_(ic , jc - 1)) + c_(ic , jc);
 			double lambdaE = 0.5 * (U_(ic , jc) + U_(ic , jc + 1)) + c_(ic , jc);
-			double lambdaN = 0.5 * (U_(ic - 1 , jc) + U_(ic , jc  )) + c_(ic , jc);
-			double lambdaS = 0.5 * (U_(ic + 1 , jc) + U_(ic , jc  )) + c_(ic , jc);
+			double lambdaN = 0.5 * (V_(ic - 1 , jc) + V_(ic , jc  )) + c_(ic , jc);
+			double lambdaS = 0.5 * (V_(ic + 1 , jc) + V_(ic , jc  )) + c_(ic , jc);
 			double sumLambda = lambdaW + lambdaE + lambdaN + lambdaS;
-			double minDtij = mesh_.area_(ic , jc)/(sumLambda);
+			double minDtij = 2 * mesh_.area_(ic , jc)/(sumLambda);
 
 			minDt = std::min(minDt , minDtij);
 		}
@@ -701,32 +759,31 @@ void Problem::correctInlet()
 {
 	if (DEBUG)
 	{
-		std::cout << "Correcting inlet boundary conditions " << std::endl;
 	}
 
+	std::cout << "Correcting inlet boundary conditions " << std::endl;
+	
 	double Vinf = Minf_ * cInf_;
-	double Riem1_inf = Vinf + 2/(gamma_-1)*cInf_;
+	double Riem1_inf = Vinf + 2/(gamma_ - 1) * cInf_;
 
-	for (unsigned int ic = 1; ic < Nc_-1; ++ic)
+	for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
 	{
-		// unsigned int ic = i + 2;
-		unsigned int jb = 2;
+		unsigned int jb = 1;
 		// Second option
 
 		// First option
 		// p_(ic , 1) = pInf_;
 		
 		Riem1_(ic , jb) = Riem1_inf;
-		Riem2_(ic , jb) = Umag_(ic , 2) - 2/(gamma_- 1)*c_(ic , 2); // From internal domain
+		Riem2_(ic , jb) = Umag_(ic , jb + 1) - 2/(gamma_- 1)*c_(ic , jb + 1); // From internal domain
 		
 
 		Umag_(ic , jb) = 0.5 * (Riem1_(ic , jb) + Riem2_(ic , jb));
 		U_(ic , jb) = Umag_(ic , jb);
 		c_(ic , jb) = 0.25 * (gamma_ - 1)*(Riem1_(ic, jb) - Riem2_(ic , jb));
 		M_(ic , jb) = Umag_(ic , jb)/c_(ic, jb);
-		p_(ic , jb) = pInf_/pow((1 + 0.5*(gamma_ - 1) * M_(ic,1) * M_(ic,1)), gamma_/(gamma_ - 1));
+		p_(ic , jb) = pInf_/pow((1 + 0.5*(gamma_ - 1) * M_(ic,jb) * M_(ic,jb)), gamma_/(gamma_ - 1));
 		rho_(ic , jb) = gamma_ * p_(ic , jb)/c_(ic , jb)/c_(ic , jb);
-
 
 		// Correct state vector
 		rhoU_(ic , jb) = rho_(ic , jb)*U_(ic , jb);
@@ -747,6 +804,7 @@ void Problem::correctWall()
 	{
 		unsigned int  jc = j + 2;
 		unsigned int& Icmax = mesh_.Icmax_;
+		std::cout << "Icmax " << Icmax << std::endl;
 
 		rho_(Icmax - 1 , jc)  =   rho_(Icmax - 2, jc);	
 		rhoE_(Icmax - 1 , jc) =   rhoE_(Icmax - 2, jc);	
@@ -783,21 +841,24 @@ void Problem::correctOutlet()
 	}
 		// unsigned int ic = i + 2;
 		unsigned int Jcmax = Mc_ - 1; 
+		std::cout << "Jcmax " << Mc_ - 1 << std::endl;
 	for (unsigned int ic = 1; ic < Nc_ - 1; ++ic)
 	{
 		
+
+		// Zero gradient
 		p_(ic , Jcmax - 1) = pInf_*pRatio;
 		p_(ic , Jcmax    ) = pInf_*pRatio;
 
 		//Zero gradient
-		rho_(ic , Jcmax - 1) = 2*rho_(ic , Jcmax - 2) - rho_(ic , Jcmax - 3);
-		rho_(ic , Jcmax    ) = rho_(ic , Jcmax - 1);
+		rho_(ic , Jcmax - 1) = 2 * rho_(ic , Jcmax - 2) - rho_(ic , Jcmax - 3);
+		rho_(ic , Jcmax    ) =     rho_(ic , Jcmax - 1);
 
-		rhoU_(ic , Jcmax - 1) = 2*rhoU_(ic , Jcmax - 2) - rhoU_(ic , Jcmax - 3);
-		rhoU_(ic , Jcmax    ) = rhoU_(ic , Jcmax - 1);
+		rhoU_(ic , Jcmax - 1) = 2 * rhoU_(ic , Jcmax - 2) - rhoU_(ic , Jcmax - 3);
+		rhoU_(ic , Jcmax    ) =     rhoU_(ic , Jcmax - 1);
 
-		rhoV_(ic , Jcmax - 1) = 2*rhoV_(ic , Jcmax - 2) - rhoV_(ic , Jcmax - 3);
-		rhoV_(ic , Jcmax    ) = rhoV_(ic , Jcmax - 1);
+		rhoV_(ic , Jcmax - 1) = 2 * rhoV_(ic , Jcmax - 2) - rhoV_(ic , Jcmax - 3);
+		rhoV_(ic , Jcmax    ) =     rhoV_(ic , Jcmax - 1);
 
 		V_(ic , Jcmax - 1) = rhoV_(ic , Jcmax - 1)/rho_(ic , Jcmax - 1);
 		V_(ic , Jcmax    ) = V_(ic , Jcmax - 1);
@@ -805,9 +866,9 @@ void Problem::correctOutlet()
 		U_(ic , Jcmax - 1) = rhoU_(ic , Jcmax - 1)/rho_(ic , Jcmax - 1);
 		U_(ic , Jcmax    ) = U_(ic , Jcmax - 1);
 
-		Umag_(ic , Jcmax - 1) = sqrt(U_(ic , Jcmax - 1) * U_(ic , Jcmax - 2) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 2));
+		Umag_(ic , Jcmax - 1) = sqrt(U_(ic , Jcmax - 1) * U_(ic , Jcmax - 1) + V_(ic , Jcmax - 1) * V_(ic , Jcmax - 1));
 
-		rhoE_(ic , Jcmax - 1) = p_(ic , Jcmax - 1)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax  -1) * Umag_(ic , Jcmax - 1) * Umag_(ic , Jcmax - 1);
+		rhoE_(ic , Jcmax - 1) = p_(ic , Jcmax - 1)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax  - 1) * Umag_(ic , Jcmax - 1) * Umag_(ic , Jcmax - 1);
 		rhoE_(ic , Jcmax    ) = rhoE_(ic , Jcmax - 1);
 
 
@@ -816,22 +877,24 @@ void Problem::correctOutlet()
 		
 
 
-		// rho_(ic , Jcmax - 1) = rho_(ic , Jcmax - 2);
-		// rho_(ic , Jcmax    ) = rho_(ic , Jcmax - 1);
+		// p_(ic , Jcmax - 2 ) = pInf_*pRatio;
+		// V_(ic , Jcmax - 2 ) = V_(ic , Jcmax - 3);
+		// Riem1_(ic , Jcmax - 3) = sqrt(U_(ic , Jcmax - 3)*U_(ic , Jcmax - 3) + V_(ic , Jcmax - 3)*V_(ic , Jcmax - 3));
+		// Riem1_(ic , Jcmax - 2) = Riem1_(ic , Jcmax - 3);
 
-		// rhoU_(ic , Jcmax - 1) = rhoU_(ic , Jcmax - 2);
-		// rhoU_(ic , Jcmax    ) = rhoU_(ic , Jcmax - 1);
+		// double sJcmax_m1 = p_(ic , Jcmax - 3) / pow(rho_(ic , Jcmax - 3) , gamma_);
+		// rho_(ic , Jcmax - 2) = pow((p_(ic , Jcmax - 2)/sJcmax_m1) , - gamma_);
+		// c_(ic , Jcmax - 2) = sqrt(gamma_ * p_(ic , Jcmax - 2) / rho_(ic , Jcmax - 2) );
 
-		// rhoV_(ic , Jcmax - 1) = rhoV_(ic , Jcmax - 2);
-		// rhoV_(ic , Jcmax    ) = rhoV_(ic , Jcmax - 1);
+		// Umag_(ic , Jcmax - 2) = Riem1_(ic , Jcmax - 2) - 2 * c_(ic , Jcmax - 2)/(gamma_ - 1);
 
-		// rhoE_(ic , Jcmax - 1) = rhoE_(ic , Jcmax - 2);
-		// rhoE_(ic , Jcmax    ) = rhoE_(ic , Jcmax - 1);
+		// U_(ic , Jcmax - 2) =sqrt(Umag_(ic , Jcmax - 2)*Umag_(ic , Jcmax - 2) - V_(ic , Jcmax - 2) * V_(ic , Jcmax - 2));
 
-		// c_(ic , Jcmax - 1) = sqrt(gamma_ * p_(ic , Jcmax - 1) / rho_(ic , Jcmax - 1));
-		// c_(ic , Jcmax    ) = sqrt(gamma_ * p_(ic , Jcmax    ) / rho_(ic , Jcmax    ));
 
-		//V_(ic , Jmax - 1) = V_(ic , Jmax ); 
+		// rhoU_(ic , Jcmax - 2) = rho_(ic , Jcmax - 2) * U_(ic , Jcmax - 2); 
+		// rhoV_(ic , Jcmax - 2) = rho_(ic , Jcmax - 2) * V_(ic , Jcmax - 2); 
+		// rhoE_(ic , Jcmax - 2) = p_(ic , Jcmax - 2)/(gamma_ - 1) + 0.5 * rho_(ic , Jcmax - 2) * Umag_(ic , Jcmax - 2) * Umag_(ic , Jcmax - 2); 
+
 
 
 
@@ -846,14 +909,23 @@ void Problem::correctOutlet()
 
 }
 
+void Problem::correctPropertiesij(unsigned int i , unsigned int j)
+{
+	U_(i , j) = rhoU_(i , j)/rho_(i , j);
+	V_(i , j) = rhoV_(i , j)/rho_(i , j);
+	Umag_(i , j) = sqrt(U_(i , j)*U_(i , j) + V_(i , j)*V_(i , j));
+	p_(i , j) = (gamma_ - 1) * (rhoE_(i , j) - 0.5 * rho_(i , j) * Umag_(i , j) * Umag_(i , j) );
+	c_(i , j) = sqrt( gamma_ * p_(i , j) * rho_(i , j));
+}
+
 void Problem::correctProperties()
 {
-	for (int ic = 1; ic < Nc_ - 1; ++ic)
+	for (int i = 0; i < Nci_ ; ++i)
 	{
-		for (int jc = 1; jc < Mc_ - 1; ++jc)
+		for (int j = 0; j < Mci_ ; ++j)
 		{
-			// unsigned int ic = i + 2;
-			// unsigned int jc = j + 2;
+			unsigned int ic = i + 2;
+			unsigned int jc = j + 2;
 
 			U_(ic , jc) = rhoU_(ic , jc)/rho_(ic , jc);
 			V_(ic , jc) = rhoV_(ic , jc)/rho_(ic , jc);
