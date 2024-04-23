@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
+np.set_printoptions(precision=5, suppress=True)
 
 def delta2(q , i ):
 	
@@ -24,9 +27,10 @@ class variable(object):
 		# Define coefficient matrix for the variables to be solved
 		self.a = coeff(np.zeros((Nx,Ny)) , np.zeros((Nx,Ny)) , np.zeros((Nx,Ny)) , np.zeros((Nx,Ny)), np.zeros((Nx,Ny)), np.zeros((Nx,Ny)))
 		
-		self.iMax = Nx + 1
-		self.jMax = Ny + 1
-		self.field = np.zeros((Nx+2,Ny+2))
+		self.icMax = Nx + 3
+		self.jcMax = Ny + 3
+		self.field = np.zeros((Nx+4,Ny+4))
+		self.field[2:-2] = value
 
 
 		self.top = top
@@ -54,15 +58,15 @@ class variable1D(object):
 		
 		# Define coefficient matrix for the variables to be solved
 		self.R = coeff(n = None, s = None , e = np.zeros(Nx) , w = np.zeros(Nx), p = np.zeros(Nx), b = None)
-
-
 		
-		self.iMax = Nx + 1
+		self.iMax = Nx + 3
 		# self.jMax = Ny + 1
-		self.field = np.ones(Nx+2)*value
-		self.flux_f = np.zeros(Nx+2)
-		self.flux_g = np.zeros(Nx+2)
+		self.field = np.zeros((Nx+4))
+		self.field[2:-2] = value
+		self.flux_f = np.zeros(Nx+4)
+		self.flux_g = np.zeros(Nx+4)
 
+		self.residual = []
 
 		
 		self.left = left
@@ -75,30 +79,53 @@ class variable1D(object):
 		self.field[i] = val
 
 	def print(self):
-		print(self.name ,self.field)
+		print(self.name , np.array_str(self.field, max_line_width=np.inf, precision=5, suppress_small=True))
 		return 
 
 	def printFlux(self):
-		print(self.name + " flux: " ,self.flux_f)
+		print(self.name + " flux: " , np.array_str(self.flux_f, max_line_width=np.inf, precision=5, suppress_small=True))
 		return 
 
 	
 
 	def computeResidualij(self , i):
-		ic = i + 1
-		self.R.w[i] = - interpolateLeft(self.flux_f , ic) * 0.1  # face length is hardcoded
+		ic = i + 2
+		self.R.w[i] =   interpolateLeft(self.flux_f , ic) * 0.1  # face length is hardcoded
 		self.R.e[i] =   interpolateRight(self.flux_f , ic) * 0.1
 
+		# if self.name == "rho":
+		# 	print("interpolateLeft ",  interpolateLeft(self.flux_f , ic) )
+		# 	print("interpolateRight ", interpolateRight(self.flux_f , ic) )
 
-		self.R.p[i] = self.R.w[i] + self.R.e[i]
+
+		self.R.p[i] = self.R.e[i] - self.R.w[i]
 
 	def computeResidual(self):
 		
+		# if self.name == "rho":
+		# 	self.printFlux()
+
 		for i in range(len(self.R.p)):
 			self.computeResidualij(i)
 
 
+	def computeDissipation(self , lambdaFace , s2face , s4face):
+		
+		deltaY = 0.1
+		# print("lambda west " , lambdaFace.w)
 
+		for i in range(self.Nx):
+			deltaqw  = self.field[i ] - self.field[i - 1]
+			delta3qw = delta2(self.field , i) - delta2(self.field , i - 1)
+			deltaqe  = self.field[i + 1] - self.field[i ]
+			delta3qe = delta2(self.field , i + 1) - delta2(self.field , i )
+			self.D.w[i] = s2face.w[i] * deltaY * lambdaFace.w[i] * deltaqw - s4face.w[i] * deltaY * lambdaFace.w[i] * delta3qw
+			self.D.e[i] = s2face.e[i] * deltaY * lambdaFace.e[i] * deltaqe - s4face.e[i] * deltaY * lambdaFace.e[i] * delta3qw
+			self.D.p[i] = self.D.e[i] - self.D.w[i]
+
+		# print(self.D.w)
+		# print(self.D.e)
+		# print(self.D.p)
 
 
 	def computeFluxij(self , u , p , i):
@@ -148,6 +175,10 @@ class Euler(object):
 		self.Deltax = self.Lx/self.Nx  # Deltax and Deltay are default sizes of the CVs
 		self.Deltay = self.Ly/self.Ny
 
+
+		# maximum index with ghost cells
+		self.icMax = self.Nx + 3
+
 		self.alpha1 = 0.25
 		self.alpha2 = 0.333
 		self.alpha3 = 0.75
@@ -162,9 +193,15 @@ class Euler(object):
 		self.gamma = gamma
 		self.gamma_1 = gamma - 1
 
+		self.s2 = np.zeros(Nx+4)
+		self.s2face = coeff( n = None , s= None , w = np.zeros(self.Nx ) , e = np.zeros(self.Nx))
+		self.s4face = coeff( n = None , s= None , w = np.zeros(self.Nx) , e = np.zeros(self.Nx))
+		self.lambdaFace = coeff(n = None , s = None , e = np.zeros(Nx + 4) , w = np.zeros(Nx + 4))
 
-		self.rho = variable1D  ("rho"   , Nx , 0.0 , 0.0 , self.rhoInf * 0.9)
-		self.rhoU = variable1D ("rhoU"  , Nx , 0.  , 0.  , self.rhoInf * self.uInf )  
+
+
+		self.rho = variable1D  ("rho"   , Nx , 0.0 , 0.0 , self.rhoInf * 0.1 )
+		self.rhoU = variable1D ("rhoU"  , Nx , 0.  , 0.  , self.rhoInf * self.uInf  )  
 	#	self.rhoV = variable1D ("rhoV"  , Nx , 1.  , 0.  ,  )
 		self.p = variable1D    ("p"     , Nx , 0.  , 0.  , self.pInf * self.pRatio) 
 		self.rhoE = variable1D ("rhoE"  , Nx , 0.  , 0.  , self.pInf * self.pRatio/self.gamma_1 + 0.5 * self.rhoInf * self.uInf * self.uInf )
@@ -191,16 +228,31 @@ class Euler(object):
 		M = self.M
 		pInf = self.pInf
 
-		Riem1[0] = uInf + 2/gamma_1 * cInf
-		Riem2[0] = u[1] - 2/gamma_1 * c[1]  # Riem2[0] = Riem2[1]  
+		print("Correct inlet ")
 
-		u[0] = 0.5 * (Riem1[0] + Riem2[0])
-		c[0] = 0.25 * gamma_1 * (Riem1[0] - Riem2[0])
-		M[0] = u[0]/c[0]
-		p[0] = pInf/(1 + 0.5 * gamma_1 * M[0]**2)**(gamma/gamma_1)
-		rho[0] = gamma * p[0]/c[0]**2
-		rhoE[0] = p[0]/gamma_1 + 0.5 * rho[0] * u[0]**2
-		rhoU[0] = rho[0] * u[0]
+		Riem1[1] = uInf + 2/gamma_1 * cInf
+		Riem2[1] = u[2] - 2/gamma_1 * c[2]  # Riem2[1] = Riem2[2]  
+
+		u[1] = 0.5 * (Riem1[1] + Riem2[1])
+		u[0] = u[1]
+		
+		c[1] = 0.25 * gamma_1 * (Riem1[1] - Riem2[1])
+		c[0] = c[1]
+
+		M[1] = u[1]/c[1]
+		M[0] = M[1]
+
+		p[1] = pInf/(1 + 0.5 * gamma_1 * M[1]**2)**(gamma/gamma_1)
+		p[0] = p[1]
+
+		rho[1] = gamma * p[1]/c[1]**2
+		rho[0] = rho[1]
+
+		rhoU[1] = rho[1] * u[1]
+		rhoU[0] = rhoU[1]
+
+		rhoE[1] = p[1]/gamma_1 + 0.5 * rho[1] * u[1]**2
+		rhoE[0] = rhoE[1]
 
 
 	def correctOutlet(self):
@@ -218,20 +270,30 @@ class Euler(object):
 		cInf = self.cInf
 		M = self.M
 		pInf = self.pInf
+		pRatio = self.pRatio
+		icMax = self.icMax
 
 		print("Correct outlet")
 		
-		rho[-1] = 2*rho[-2] - rho[-3]
+		rho[icMax - 1] = 2*rho[icMax - 2] - rho[icMax - 3]
+		rho[icMax    ] = rho[icMax - 1]
 
-		rhoU[-1] = 2*rhoU[-2] - rhoU[-3]
 
-		rhoE[-1] = pInf/gamma_1 + 0.5 * rho[-1] * u[-1]**2
+		rhoU[icMax - 1] = 2*rhoU[icMax - 2] - rhoU[icMax - 3]
+		rhoU[icMax    ] = rhoU[icMax - 1]
 
-		p[-1] = pInf
+		u[icMax - 1] = rhoU[icMax - 1]/rho[icMax - 1]
+		u[icMax    ] = u[icMax - 1]
 
-		c[-1] = np.sqrt(gamma * p[-1] / rho[-1])
+		rhoE[icMax - 1] = pInf*pRatio/gamma_1 + 0.5 * rho[icMax - 1] * u[icMax - 1]**2
+		rhoE[icMax    ] = rhoE[icMax - 1]
 
-		u[-1] = rhoU[-1]/rho[-1]
+		p[icMax - 1] = pInf*pRatio
+		p[icMax    ] = pInf*pRatio
+
+		c[icMax - 1] = np.sqrt(gamma * p[icMax - 1] / rho[icMax - 1])
+		c[icMax    ] = c[icMax - 1]
+
 
 
 	def correctFields(self):
@@ -251,12 +313,61 @@ class Euler(object):
 		pInf = self.pInf
 
 		# pressure and speed of sound shoul be updated only at the interior points
-		u.field[1:-2] = rhoU.field[1:-2]/rho.field[1:-2]
-		p.field[1:-2] = gamma_1 * (rhoE.field[1:-2] - 0.5 * rho.field[1:-2] * u.field[1:-2] ** 2)
-		c.field[1:-2] = np.sqrt(gamma * p.field[1:-2] / rho.field[1:-2])
+		u.field[2:-2] = rhoU.field[2:-2]/rho.field[2:-2]
+		p.field[2:-2] = gamma_1 * (rhoE.field[2:-2] - 0.5 * rho.field[2:-2] * u.field[2:-2] ** 2)
+		c.field[2:-2] = np.sqrt(gamma * p.field[2:-2] / rho.field[2:-2])
 
-		self.p.print()
-		self.c.print()
+
+	def computeSwitches(self):
+		
+		print("computeSwitches ")
+
+		nu2 = 0
+		nu4 = 0.001
+		p = self.p
+
+		for i in range(1,len(p.field)-1):
+			self.s2[i] = 0.1 * abs(delta2(p , i))/(p[i + 1] + 2*p[i] + p[i - 1]) 
+
+		print("s2 " ,self.s2)
+		# Interpolate switches
+
+		for i in range(self.Nx):
+
+			ic = i + 2
+			
+			self.s2face.w[i] = interpolateLeft(self.s2 , ic) 
+			self.s2face.e[i] = interpolateRight(self.s2 , ic) 
+
+			self.s4face.w[i] = max(0 , nu4 - self.s2face.w[i])
+			self.s4face.e[i] = max(0 , nu4 - self.s2face.e[i])
+
+			
+	def computeEigen(self ):
+		print("computeEigen")
+		
+
+		for i in range(self.Nx):
+			ic = i + 2
+			self.lambdaFace.w[ic] = interpolateLeft(self.u.field , ic) + interpolateLeft(self.c.field ,ic)
+			self.lambdaFace.e[ic] = interpolateRight(self.u.field , ic) + interpolateRight(self.c.field , ic)
+
+
+
+		# print("lambda west " , self.lambdaFace.w)
+
+		# for i in range(self.Nx):
+		# 	deltaqw  = field[i ] - field[i - 1]
+		# 	delta3qw = delta2(field , i) - delta2(field , i - 1)
+		# 	deltaqe  = field[i + 1] - field[i ]
+		# 	delta3qe = delta2(field , i + 1) - delta2(field , i )
+		# 	field.D.w[i] = self.s2face.w[i] * deltaY * self.lambdaFace.w[i] * deltaqw - self.s4face.w[i] * deltaY * self.lambdaFace.w[i] * delta3qw
+		# 	field.D.e[i] = self.s2face.e[i] * deltaY * self.lambdaFace.e[i] * deltaqe - self.s4face.e[i] * deltaY * self.lambdaFace.e[i] * delta3qw
+		# 	field.D.p[i] = field.D.e[i] - field.D.w[i]
+
+		# print(field.D.w)
+		# print(field.D.e)
+		# print(field.D.p)
 
 	def computeFluxes(self):
 		
@@ -264,10 +375,7 @@ class Euler(object):
 		self.rho.computeFlux(self.u.field , None)
 		self.rhoU.computeFlux(self.u.field , self.p.field)
 		self.rhoE.computeFlux(self.u.field , self.p.field)
-		self.u.print()
-		print(self.rho.flux_f)
-		print(self.rhoU.flux_f)
-		print(self.rhoE.flux_f)
+		
 
 	def RungeKutta(self , variable , i):
 		
@@ -276,42 +384,138 @@ class Euler(object):
 		alpha3 = self.alpha3
 		alpha4 = self.alpha4
 		
-		dt = 1e-5
+		dt = 1e-6
 
-		ic = i + 1
-		variable0 = variable[i].copy()
+		ic = i + 2
+		variable0 = variable[ic].copy()
 
-		variable[ic] = variable0 - alpha4 * dt / (self.Lx/self.Nx) * variable.R.p[i]   # Only one step for testing
+		# if variable.name == "rho":
+		# 	print("variable.R.p[i] " , variable.R.p[i])
+		# 	print("variable.D.p[i] " , variable.D.p[i])
+		# 	print("variable[ic] before" , variable.field[ic])
+		variable[i] = variable0 - alpha1 * dt / (self.Lx/self.Nx) * (variable.R.p[i]  - variable.D.p[i])
 		variable.computeFluxij(self.u , self.p , ic)
 		variable.computeResidualij(i)
+		
+		variable[i] = variable0 - alpha2 * dt / (self.Lx/self.Nx) * (variable.R.p[i]  - variable.D.p[i])
+		variable.computeFluxij(self.u , self.p , ic)
+		variable.computeResidualij(i)
+		
+		variable[i] = variable0 - alpha3 * dt / (self.Lx/self.Nx) * (variable.R.p[i]  - variable.D.p[i])
+		variable.computeFluxij(self.u , self.p , ic)
+		variable.computeResidualij(i)
+		
+		variable[ic] = variable0 - alpha4 * dt / (self.Lx/self.Nx) * (variable.R.p[i]  - variable.D.p[i]) # Only one step for testing
 
-		# variable[i] = variable0 - alpha2 * dt / (self.Lx/self.Nx) * variable.R.p[i]
+		# if variable.name == "rho":
+		# 	print("variable[ic] after" , variable[ic])
+		
+
 		# variable[i] = variable0 - alpha3 * dt / (self.Lx/self.Nx) * variable.R.p[i]
 		# variable[i] = variable0 - alpha4 * dt / (self.Lx/self.Nx) * variable.R.p[i]
 
-		return variable
+		
 
 
 	def solve(self):
-		#Correct boundary
-		
+
+		self.correctInlet()
+		self.correctOutlet()
 		self.computeFluxes()
-		self.correctInlet()
-		self.correctOutlet()
 
-		self.rho.computeResidual()
-		self.rhoU.computeResidual()
-		self.rhoE.computeResidual()
+		
 
-		# loop over internal field
-		for i in range(len(self.rho.R.p) - 1):
-			self.RungeKutta(self.rho , i)
-			self.RungeKutta(self.rhoU , i)
-			self.RungeKutta(self.rhoE , i)
+		self.computeSwitches()
+		self.computeEigen()
+		
+		
 
-		self.correctFields()
-		self.correctOutlet()
-		self.correctInlet()
+		it = 0
+		N  = 5000
+		while it < N:
+
+			print("-----------------------------")
+			print("Iteration " , it)
+
+			self.rho.print()
+			self.rhoU.print()
+			self.rhoE.print()
+			self.p.print()
+
+			print()
+			self.rho.printFlux()
+			self.rhoU.printFlux()
+			self.rhoE.printFlux()
+			
+			self.computeSwitches()
+			print()
+			self.computeEigen()
+			print()
+			
+			self.rho.computeDissipation(self.lambdaFace , self.s2face , self.s4face)
+			self.rhoU.computeDissipation(self.lambdaFace , self.s2face , self.s4face)
+			self.rhoE.computeDissipation(self.lambdaFace , self.s2face , self.s4face)
+			
+			print()
+			
+			self.rho.computeResidual()
+			self.rhoU.computeResidual()
+			self.rhoE.computeResidual()
+		
+			# self.rho.print()
+			# self.rhoU.print()
+			# self.rhoE.print()
+
+			print()
+
+			self.correctFields()
+			self.computeFluxes()
+			
+			
+			print()
+
+			#Correct boundary
+			self.correctInlet()
+			self.correctOutlet()
+			
+			# self.rho.print()
+			# self.rhoU.print()
+			# self.rhoE.print()
+
+			print()
+
+			rho0 = self.rho.field.copy()
+
+			# loop over internal field
+			for i in range(len(self.rho.R.p)):
+				# print(i)
+				# print("R rho" , self.rho.R.p)
+				# print("D rho" , self.rho.D.p)
+				self.RungeKutta(self.rho , i)			
+				# print("R rhoU" , self.rhoU.R.p)
+				self.RungeKutta(self.rhoU , i)
+				# print("R rhoE" , self.rhoE.R.p)
+				self.RungeKutta(self.rhoE , i)
+
+			self.rho.residual.append(abs(rho0[3] - self.rho.field[3]))
+
+			# self.rho.print()
+			# self.rhoU.print()
+			# self.rhoE.print()
+
+
+			self.correctFields()
+			self.correctOutlet()
+			self.correctInlet()
+
+			# self.rho.print()
+			# self.rhoU.print()
+			# self.rhoE.print()
+
+			it = it + 1
+			print("-----------------------------")
+		
+		print("rho residual " , self.rho.residual)
 
 		
 	
@@ -321,12 +525,51 @@ class Euler(object):
 
 problem = Euler(4 ,  1e-9 , 1 , 0.1 , 0.3 , 1e5 , 0.9 , 1)
 
-problem.rho.print()
 problem.solve()
-problem.rho.print()
 
+plt.plot(problem.rho.residual)
+plt.yscale('log')
+plt.show()
 
+plt.figure()
+plt.plot(problem.rho.field)
+plt.show()
+# problem.rho.printFlux()
+# problem.rho.print()
+# problem.rhoU.printFlux()
+# problem.rhoU.print()
+# problem.rhoE.printFlux()
+# problem.rhoE.print()
+# print()
 
+# problem.computeFluxes()
+# problem.rho.printFlux()
+# problem.rhoU.printFlux()
+# problem.rhoE.printFlux()
+# print()
+
+# problem.correctInlet()
+# problem.rho.printFlux()
+# problem.rho.print()
+# problem.rhoU.printFlux()
+# problem.rhoU.print()
+# problem.rhoE.printFlux()
+# problem.rhoE.print()
+# print()
+
+# problem.correctOutlet()
+# problem.rho.printFlux()
+# problem.rho.print()
+# problem.rhoU.printFlux()
+# problem.rhoU.print()
+# problem.rhoE.printFlux()
+# problem.rhoE.print()
+# print()
+
+# problem.computeFluxes()
+# problem.rho.printFlux()
+# problem.rhoU.printFlux()
+# problem.rhoE.printFlux()
 
 
 	
