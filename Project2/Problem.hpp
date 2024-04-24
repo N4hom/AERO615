@@ -13,9 +13,9 @@ class Problem
 public:
 	Mesh mesh_;
 	double dt_;
-	double CFL_ = 0.9;
+	double CFL_ = 2;
 	const double nu2_ = 0;
-	const double nu4_ = 0;
+	const double nu4_ = 0.1;
 	unsigned int Nci_ , Mci_;
 	unsigned int Nc_ , Mc_;
 
@@ -62,12 +62,8 @@ public:
 	void correctProperties();
 	void correctPropertiesij(unsigned int i , unsigned int j);
 	void correctTimeStep();
-	void R();
-	// Matrix<double> R(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
-	// Matrix<double> D(const Matrix<double>& variable);
-	//void D(const Matrix<double>& flux_f , const Matrix<double>& flux_g);
 	void solve();
-	void RungeKutta(Variable& variable , int i , int j);
+	void RungeKutta(Variable& variable , unsigned int i , unsigned int j);
 	
 	Problem(unsigned int N, unsigned int M, std::string filename_x, std::string filename_y);
 	~Problem();
@@ -131,23 +127,26 @@ Problem::~Problem(){}
 
 double Problem::interpolateLeft(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
-	
-	return 0.5 * (flux(i     , j - 1) + flux(i , j)) ;
+	double fluxLeft = 0.5 * (flux(i     , j - 1) + flux(i , j));
+	return fluxLeft ;
 }
 
 double Problem::interpolateRight(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
-	return 0.5 * (flux(i     , j + 1) + flux(i , j)) ;
+	double fluxRight = 0.5 * (flux(i     , j + 1) + flux(i , j)) ;
+	return fluxRight;
 }
 
 double Problem::interpolateTop(Matrix<double>& flux , unsigned int i, unsigned int j)	const
 {
-	return 0.5 * (flux(i - 1  , j   ) + flux(i , j)) ;
+	double fluxTop = 0.5 * (flux(i - 1  , j   ) + flux(i , j)) ;
+	return fluxTop;
 }
 
 double Problem::interpolateBottom(Matrix<double>& flux , unsigned int i, unsigned int j) const
 {
-	return 0.5 * (flux(i + 1  , j   ) + flux(i , j)) ;
+	double fluxBottom =  0.5 * (flux(i + 1  , j   ) + flux(i , j)) ;
+	return fluxBottom;
 }
 
 
@@ -182,7 +181,7 @@ void Problem::initialize()
 			rho_(ic , jc) = rhoInf_;
 			p_(ic , jc) = pInf_*pRatio;
 			c_(ic , jc) = cInf_;
-			U_(ic , jc) = Minf_ * cInf_;
+			U_(ic , jc) = cInf_ * Minf_;
 			rhoU_(ic , jc) = rho_(ic , jc) * U_(ic , jc);
 			rhoV_(ic , jc) = rho_(ic , jc) * V_(ic , jc);
 			Umag_(ic , jc) = sqrt(U_(ic , jc)*U_(ic , jc) + V_(ic , jc) * V_(ic , jc));
@@ -199,15 +198,12 @@ void Problem::computeSwitches()
 	{
 		for (unsigned int j = - 1; j < Mci_ + 1; ++j)
 		{
-			
-
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
 			s2Csi_(ic , jc) = nu2_ * std::abs(delta2Csi(p_ , i , j))/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
 			s2Eta_(ic , jc) = nu2_ * std::abs(delta2Eta(p_ , i , j))/(p_(ic , jc + 1) + 2*p_(ic , jc) + p_(ic , jc - 1));
-
-			
+		
 		}
 			
 	}
@@ -367,6 +363,8 @@ void Problem::solve()
 
 		correctTimeStep();
 
+		computeSwitches();
+
 		rho_.computeResidual();
 		rho_.computeDissipation();
 		
@@ -379,9 +377,9 @@ void Problem::solve()
 		rhoE_.computeResidual();
 		rhoE_.computeDissipation();
 		
-		for (int i = 0; i < Nci_; ++i)
+		for (unsigned int i = 0; i < Nci_; ++i)
 		{
-			for (int j = 1; j < Mci_  ; ++j)
+			for (unsigned int j = 1; j < Mci_  ; ++j)
 			{
 				unsigned int ic = i + 2;
 				unsigned int jc = j + 2;
@@ -391,6 +389,7 @@ void Problem::solve()
 				RungeKutta(rhoU_  , i , j);
 				RungeKutta(rhoV_  , i , j);
 				RungeKutta(rhoE_  , i , j);
+				correctProperties();
 			}
 		}
 
@@ -426,15 +425,30 @@ void Problem::solve()
 			Riem2_.print();
 		}
 		
+		correctProperties();
+		computeFluxes();
+		
 		std::cout << "Correcting boundary conditions " << std::endl;
 		
-		correctProperties();
+		
 		correctInlet();
 		correctWall();
 		correctOutlet();
 
-		computeFluxes();
-		computeSwitches();
+		rho_.print();
+		rho_.printFlux_f();
+		rho_.printFlux_g();
+		rhoU_.print();
+		rhoU_.printFlux_f();
+		rhoU_.printFlux_g();
+		rhoV_.print();
+		rhoV_.printFlux_f();
+		rhoV_.printFlux_g();
+		rhoE_.print();
+		rhoE_.printFlux_f();
+		rhoE_.printFlux_g();
+		
+		
 
 		
 
@@ -452,14 +466,14 @@ void Problem::solve()
 }
 
 
-void Problem::RungeKutta(Variable& variable, int i , int j )
+void Problem::RungeKutta(Variable& variable, unsigned int i ,  unsigned int j )
 {	
 	const double alpha1 = 0.25, alpha2 = 0.5 , alpha3 = 0.33333, alpha4 = 1.;
 	
 	Matrix<double>& area = mesh_.area_;
 
-	int ic = i + 2;
-	int jc = j + 2;
+	unsigned int ic = i + 2;
+	unsigned int jc = j + 2;
 
 
 	std::cout << "RungeKutta " << variable.name() << std::endl;
@@ -467,7 +481,7 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	variable.printFlux_f();
 	variable.printFlux_g();
 	std::cout << "i " << i << std::endl;
-	std::cout << "j " << i << std::endl;
+	std::cout << "j " << j << std::endl;
 	double& Aij       = area(ic,jc);
 	double& Rij       = variable.R()(i , j);
 	double  Dij0      = variable.D()(i , j);
@@ -508,11 +522,11 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	variable.R().print();
 	
 	variable(ic , jc) = variable0 - alpha4 * dtByAij * (Rij - Dij0);
-
-	
-	
 	
 }
+
+
+
 
 
 void Problem::correctTimeStep()
@@ -767,6 +781,7 @@ void Problem::correctOutlet()
 		p_(ic , Jcmax - 1) = pInf_*pRatio;
 		p_(ic , Jcmax    ) = pInf_*pRatio;
 
+
 		//Zero gradient
 		rho_(ic , Jcmax - 1) = 2 * rho_(ic , Jcmax - 2) - rho_(ic , Jcmax - 3);
 		rho_(ic , Jcmax    ) =     rho_(ic , Jcmax - 1);
@@ -827,7 +842,7 @@ void Problem::correctPropertiesij(unsigned int i , unsigned int j)
 	V_(i , j) = rhoV_(i , j)/rho_(i , j);
 	Umag_(i , j) = sqrt(U_(i , j)*U_(i , j) + V_(i , j)*V_(i , j));
 	p_(i , j) = (gamma_ - 1) * (rhoE_(i , j) - 0.5 * rho_(i , j) * Umag_(i , j) * Umag_(i , j) );
-	c_(i , j) = sqrt( gamma_ * p_(i , j) * rho_(i , j));
+	c_(i , j) = sqrt( gamma_ * p_(i , j) / rho_(i , j));
 	M_(i , j) = Umag_(i , j)/c_(i , j);
 }
 
@@ -844,7 +859,7 @@ void Problem::correctProperties()
 			V_(ic , jc) = rhoV_(ic , jc)/rho_(ic , jc);
 			Umag_(ic , jc) = sqrt( U_(ic , jc) * U_(ic , jc) + V_(ic , jc) * V_(ic , jc));
 			p_(ic , jc) = (gamma_ - 1) * (rhoE_(ic , jc) - 0.5 * rho_(ic , jc) * Umag_(ic , jc) * Umag_(ic , jc) );
-			c_(ic , jc) = sqrt( gamma_ * p_(ic , jc) * rho_(ic , jc));
+			c_(ic , jc) = sqrt( gamma_ * p_(ic , jc) / rho_(ic , jc));
 			M_(ic , jc) = Umag_(ic , jc)/c_(ic , jc);
 		}
 	}

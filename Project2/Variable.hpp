@@ -251,9 +251,9 @@ double Variable::computeResidualij(unsigned int i, unsigned int j)
 	Rg_(i , j).s = interpolateBottom(flux_g_ , ic , jc) * mesh_.yFaces_(i , j).s;
 
 	// South and west assumed negative contributions
-	double Rij =  (Rf_(i , j).s - Rf_(i , j).n + Rf_(i , j).e - Rf_(i , j).w) - (Rg_(i , j).s - Rg_(i , j).n + Rg_(i , j).e - Rg_(i , j).w);
-	// double Rij =  (Rf_(i , j).s - Rf_(i , j).n + Rf_(i , j).e - Rf_(i , j).w) ;
-	if (i == 3 && j == 3)
+	//double Rij =  (Rf_(i , j).s - Rf_(i , j).n + Rf_(i , j).e - Rf_(i , j).w) - (Rg_(i , j).s - Rg_(i , j).n + Rg_(i , j).e - Rg_(i , j).w);
+	double Rij =  (Rf_(i , j).s - Rf_(i , j).n + Rf_(i , j).e - Rf_(i , j).w) ;
+	if (i == 1 && j == 1)
 	{
 		std::cout << "Rij " << Rij << std::endl;  
 		/* code */
@@ -272,7 +272,15 @@ void Variable::computeResidual()
 	{
 		for (unsigned int j = 0; j < Mci_; ++j)
 		{
-			R_(i,j) = computeResidualij(i,j);
+			
+			double Rij = computeResidualij(i , j);
+			
+			R_(i,j) = Rij;
+			
+			if (i == 1 && j == 1)
+			{
+				std::cout << "R(i , j) " << Rij << std::endl;
+			}
 		}
 	}
 
@@ -309,10 +317,10 @@ void Variable::computeDissipation()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-			double delta2W = phi_(ic , jc) - phi_(ic , jc - 1);
-			double delta2E = phi_(ic , jc) - phi_(ic , jc + 1);
-			double delta2N = phi_(ic , jc) - phi_(ic - 1, jc);
-			double delta2S = phi_(ic + 1, jc) - phi_(ic   , jc);
+			double delta2W = phi_(ic , jc    ) - phi_(ic    , jc - 1);
+			double delta2E = phi_(ic , jc + 1) - phi_(ic    , jc    );
+			double delta2N = phi_(ic , jc    ) - phi_(ic - 1, jc    );
+			double delta2S = phi_(ic + 1, jc ) - phi_(ic    , jc    );
 
 			double delta4W = phi_(ic     , jc + 1) - 3 * phi_(ic     , jc    ) + 3 * phi_(ic      , jc - 1) - phi_(ic     , jc - 2);
 			double delta4E = phi_(ic     , jc + 2) - 3 * phi_(ic     , jc + 1) + 3 * phi_(ic      , jc    ) - phi_(ic     , jc - 1);
@@ -337,8 +345,8 @@ void Variable::computeDissipation()
 			// DCoeff_(i , j).s =    s2_(ic , jc).s * std::abs(yFaces(i , j).s) * lambda_(ic , jc).s * (phi_(ic + 1 , jc) - phi_(ic  , jc)) -
 			// 						    s4_(ic , jc).s * std::abs(yFaces(i , j).s) * lambda_(ic , jc).s * ( delta2Csi(phi_ , i + 1, j) - delta2Csi(phi_ , i , j) );
 
-			D_(i , j) =  DCoeff_(i , j).s - DCoeff_(i , j).n + DCoeff_(i , j).e - DCoeff_(i , j).w;
-			// D_(i , j) =   DCoeff_(i , j).e - DCoeff_(i , j).w;
+			//D_(i , j) =  DCoeff_(i , j).s - DCoeff_(i , j).n + DCoeff_(i , j).e - DCoeff_(i , j).w;
+			D_(i , j) =   DCoeff_(i , j).e - DCoeff_(i , j).w;
 						
 		}
 	}
