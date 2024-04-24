@@ -225,10 +225,10 @@ area_(N+3,M+3)
 	{
 		for (unsigned int j = 0; j < Mc_ ; ++j)
 		{
-			xFaces_(i,j).w  =  y_(i + 1 , j     ) - y_(i     , j     );
-			xFaces_(i,j).e  =  y_(i     , j + 1 ) - y_(i + 1 , j + 1 );
-			xFaces_(i,j).n  =  y_(i     , j     ) - y_(i     , j + 1 );
-			xFaces_(i,j).s  =  y_(i + 1 , j + 1 ) - y_(i + 1 , j     );
+			xFaces_(i,j).w  =  std::abs(y_(i + 1 , j     ) - y_(i     , j     ));
+			xFaces_(i,j).e  =  std::abs(y_(i     , j + 1 ) - y_(i + 1 , j + 1 ));
+			xFaces_(i,j).n  =  std::abs(y_(i     , j     ) - y_(i     , j + 1 ));
+			xFaces_(i,j).s  =  std::abs(y_(i + 1 , j + 1 ) - y_(i + 1 , j     ));
 
 		}	
 	}
@@ -239,10 +239,10 @@ area_(N+3,M+3)
 		for (unsigned int j = 0; j < Jmax_ ; ++j)
 		{
 			
-			yFaces_(i,j).w  =  x_(i + 1 , j     ) - x_(i     , j     );
-			yFaces_(i,j).e  =  x_(i     , j + 1 ) - x_(i + 1 , j + 1 );
-			yFaces_(i,j).n  =  x_(i     , j     ) - x_(i     , j + 1 );
-			yFaces_(i,j).s  =  x_(i + 1 , j + 1 ) - x_(i + 1 , j     );
+			yFaces_(i,j).w  =  std::abs(x_(i + 1 , j     ) - x_(i     , j     ));
+			yFaces_(i,j).e  =  std::abs(x_(i     , j + 1 ) - x_(i + 1 , j + 1 ));
+			yFaces_(i,j).n  =  std::abs(x_(i     , j     ) - x_(i     , j + 1 ));
+			yFaces_(i,j).s  =  std::abs(x_(i + 1 , j + 1 ) - x_(i + 1 , j     ));
 
 		}	
 	}		

@@ -15,7 +15,7 @@ public:
 	double dt_;
 	double CFL_ = 0.9;
 	const double nu2_ = 0;
-	const double nu4_ = 0.001;
+	const double nu4_ = 0;
 	unsigned int Nci_ , Mci_;
 	unsigned int Nc_ , Mc_;
 
@@ -104,12 +104,12 @@ rhoE_("rhoE" , Nc_ , Mc_, mesh_, U_, V_, c_ , p_ , s2_ , s4_)
 
 	initialize();
 	
+	computeFluxes();
 
 	correctInlet();
 	correctWall();
 	correctOutlet();
 
-	computeFluxes();
 
 
 	// It should be executed inside computeDissipation() once every time step
@@ -227,46 +227,53 @@ void Problem::computeSwitches()
 			s2_(ic , jc).e = interpolateRight(s2Eta_ , ic , jc);
 			s2_(ic  , jc).w = interpolateLeft(s2Eta_ , ic , jc);
 
-			if (i == 0)
-			{
-				s2_(ic , jc).n = 0;
-				s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
-			}
-			else if (i == Nci_ - 1)
-			{
-				s2_(ic , jc).s = 0;
-				s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
+			// if ghost cells are used (??)
+			s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
+			s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
 
-			}
-			else
-			{
-				s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
-				s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
+			// if (i == 0)
+			// {
+			// 	s2_(ic , jc).n = 0;
+			// 	s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
+			// }
+			// else if (i == Nci_ - 1)
+			// {
+			// 	s2_(ic , jc).s = 0;
+			// 	s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
 
-			}
+			// }
+			// else
+			// {
+			// 	s2_(ic , jc).n = interpolateTop(s2Csi_ , ic , jc);
+			// 	s2_(ic , jc).s = interpolateBottom(s2Csi_ , ic , jc);
+
+			// }
 
 			
 			s4_(ic , jc).e = std::max(0. , nu4_ - s2_(ic , jc).e );
 			s4_(ic , jc).w = std::max(0. , nu4_ - s2_(ic , jc).w );
 
-			if (i == 0)
-			{
-				s4_(ic , jc).n = 0;
-				s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
+			s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
+			s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
+			
+			// if (i == 0)
+			// {
+			// 	s4_(ic , jc).n = 0;
+			// 	s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
 
-			}
-			else if (i == Nci_ - 1)
-			{
+			// }
+			// else if (i == Nci_ - 1)
+			// {
 
-				s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
-				s4_(ic , jc).s = 0;
+			// 	s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
+			// 	s4_(ic , jc).s = 0;
 
-			}
-			else
-			{
-				s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
-				s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
-			}
+			// }
+			// else
+			// {
+			// 	s4_(ic , jc).n = std::max(0. , nu4_ - s2_(ic , jc).n );
+			// 	s4_(ic , jc).s = std::max(0. , nu4_ - s2_(ic , jc).s );
+			// }
 
 
 			
@@ -294,19 +301,30 @@ void Problem::computeFluxes()
 			unsigned ic = i + 2;
 			unsigned jc = j + 2;
 
-			rho_.correctFlux_f(ic , jc);
-			rho_.correctFlux_g(ic , jc);
+			// rho_.correctFlux_f(ic , jc);
+			// rho_.correctFlux_g(ic , jc);
 			
-			rhoU_.correctFlux_f(ic , jc);
-			rhoU_.correctFlux_g(ic , jc);
+			// rhoU_.correctFlux_f(ic , jc);
+			// rhoU_.correctFlux_g(ic , jc);
 			
-			rhoV_.correctFlux_f(ic , jc);
-			rhoV_.correctFlux_g(ic , jc);
+			// rhoV_.correctFlux_f(ic , jc);
+			// rhoV_.correctFlux_g(ic , jc);
 			
-			rhoE_.correctFlux_f(ic , jc);
-			rhoE_.correctFlux_g(ic , jc);
+			// rhoE_.correctFlux_f(ic , jc);
+			// rhoE_.correctFlux_g(ic , jc);
 
-	
+			rho_.flux_f()(ic , jc) = rho_(ic , jc) * U_(ic , jc);
+			rho_.flux_g()(ic , jc) = rho_(ic , jc) * V_(ic , jc);
+
+			rhoU_.flux_f()(ic , jc) = rhoU_(ic , jc) * U_(ic , jc) + p_(ic , jc);
+			rhoU_.flux_g()(ic , jc) = rhoU_(ic , jc) * V_(ic , jc);
+
+			rhoV_.flux_f()(ic , jc) = rhoV_(ic , jc) * U_(ic , jc);
+			rhoV_.flux_g()(ic , jc) = rhoV_(ic , jc) * V_(ic , jc) + p_(ic , jc);
+
+			rhoE_.flux_f()(ic , jc) = (rhoE_(ic , jc) + p_(ic , jc)) * U_(ic , jc);
+			rhoE_.flux_g()(ic , jc) = (rhoE_(ic , jc) + p_(ic , jc)) * V_(ic , jc) ;
+
 			
 		}
 	}
@@ -320,7 +338,7 @@ void Problem::computeFluxes()
 void Problem::solve()
 {
 
-	unsigned int N = 400;
+	unsigned int N = 100;
 	unsigned int iter = 0;
 
 
@@ -332,17 +350,35 @@ void Problem::solve()
 			std::cout << "iter " << iter << std::endl;
 			std::cout << "dt " << dt_ << std::endl;
 		}
-			
+		
+		rho_.print();
+		rho_.printFlux_f();
+		rho_.printFlux_g();
+		rhoU_.print();
+		rhoU_.printFlux_f();
+		rhoU_.printFlux_g();
+		rhoV_.print();
+		rhoV_.printFlux_f();
+		rhoV_.printFlux_g();
+		rhoE_.print();
+		rhoE_.printFlux_f();
+		rhoE_.printFlux_g();
+	
+
 		correctTimeStep();
 
 		rho_.computeResidual();
 		rho_.computeDissipation();
+		
 		rhoU_.computeResidual();
 		rhoU_.computeDissipation();
+		
 		rhoV_.computeResidual();
 		rhoV_.computeDissipation();
+		
 		rhoE_.computeResidual();
 		rhoE_.computeDissipation();
+		
 		for (int i = 0; i < Nci_; ++i)
 		{
 			for (int j = 1; j < Mci_  ; ++j)
@@ -358,10 +394,43 @@ void Problem::solve()
 			}
 		}
 
+		if (DEBUG)
+		{
+			outputFile <<  rho_.computeError() << std::endl;
+			
+			rho_.print();
+			rho_.printFlux_f();
+			rho_.printFlux_g();
+			rhoU_.print();
+			rhoU_.printFlux_f();
+			rhoU_.printFlux_g();
+			rhoV_.print();
+			rhoV_.printFlux_f();
+			rhoV_.printFlux_g();
+			rhoE_.print();
+			rhoE_.printFlux_f();
+			rhoE_.printFlux_g();
+			std::cout << "p " ;
+			p_.print();
+			std::cout << "Umag " ;
+			Umag_.print();
+			std::cout << "u " ;
+			U_.print();
+			std::cout << "u " ;
+			V_.print();
+			std::cout << "c " ;
+			c_.print();
+			std::cout << "Riem1_ " ;
+			Riem1_.print();
+			std::cout << "Riem2_ " ;
+			Riem2_.print();
+		}
+		
+		std::cout << "Correcting boundary conditions " << std::endl;
 		
 		correctProperties();
-		correctWall();
 		correctInlet();
+		correctWall();
 		correctOutlet();
 
 		computeFluxes();
@@ -370,14 +439,6 @@ void Problem::solve()
 		
 
 		std::cout << "End of time step " << std::endl;
-		if (DEBUG)
-		{
-			outputFile <<  rho_.computeError() << std::endl;
-			rho_.print();
-			rhoU_.print();
-			rhoV_.print();
-			rhoE_.print();
-		}
 
 		std::cout << "--------------------------------------------------------------------------------" << std::endl;
 
@@ -400,6 +461,13 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	int ic = i + 2;
 	int jc = j + 2;
 
+
+	std::cout << "RungeKutta " << variable.name() << std::endl;
+	variable.print();
+	variable.printFlux_f();
+	variable.printFlux_g();
+	std::cout << "i " << i << std::endl;
+	std::cout << "j " << i << std::endl;
 	double& Aij       = area(ic,jc);
 	double& Rij       = variable.R()(i , j);
 	double  Dij0      = variable.D()(i , j);
@@ -408,17 +476,27 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	double dtByAij = dt_/Aij;
 	// At the next RK step the fluxes must be updated to calculate the new residual. It will be changed only the flux and residual at the cell (ic jc) or (i j)
 	
+	std::cout << "D " << std::endl;
+	variable.D().print();	
+	std::cout << "R " << std::endl;
+	variable.R().print();
+
 	variable(ic , jc) = variable0 - alpha1 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f( ic , jc);
 	variable.correctFlux_g( ic , jc);
 
 	Rij = variable.computeResidualij(i , j);
-		
+	std::cout << "R " << std::endl;
+	variable.R().print();
+	
 	variable(ic , jc) = variable0 - alpha2 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f(ic , jc);
 	variable.correctFlux_g(ic , jc);
 
 	Rij = variable.computeResidualij(i , j);
+
+	std::cout << "R " << std::endl;
+	variable.R().print();
 	
 	variable(ic , jc) = variable0 - alpha3 * dtByAij * (Rij - Dij0);
 	variable.correctFlux_f(ic , jc);
@@ -426,7 +504,12 @@ void Problem::RungeKutta(Variable& variable, int i , int j )
 	
 	Rij = variable.computeResidualij(i , j);
 	
+	std::cout << "R " << std::endl;
+	variable.R().print();
+	
 	variable(ic , jc) = variable0 - alpha4 * dtByAij * (Rij - Dij0);
+
+	
 	
 	
 }
@@ -443,11 +526,11 @@ void Problem::correctTimeStep()
 			unsigned int ic = i + 2;
 			unsigned int jc = j + 2;
 
-			double lambdaW = 0.5 * (U_(ic , jc) + U_(ic , jc - 1)) + c_(ic , jc);
-			double lambdaE = 0.5 * (U_(ic , jc) + U_(ic , jc + 1)) + c_(ic , jc);
-			double lambdaN = 0.5 * (V_(ic - 1 , jc) + V_(ic , jc  )) + c_(ic , jc);
-			double lambdaS = 0.5 * (V_(ic + 1 , jc) + V_(ic , jc  )) + c_(ic , jc);
-			double sumLambda = lambdaW + lambdaE + lambdaN + lambdaS;
+			double lambdaW = std::abs(0.5 * (U_(ic , jc) + U_(ic , jc - 1))) + c_(ic , jc);
+			double lambdaE = std::abs(0.5 * (U_(ic , jc) + U_(ic , jc + 1))) + c_(ic , jc);
+			double lambdaN = std::abs(0.5 * (V_(ic - 1 , jc) + V_(ic , jc  ))) + c_(ic , jc);
+			double lambdaS = std::abs(0.5 * (V_(ic + 1 , jc) + V_(ic , jc  ))) + c_(ic , jc);
+			double sumLambda = lambdaW*mesh_.xFaces_(i , j).w + lambdaE*mesh_.xFaces_(i , j).e + lambdaN*mesh_.yFaces_(i , j).n + lambdaS*mesh_.xFaces_(i , j).s;
 			double minDtij = 2 * mesh_.area_(ic , jc)/(sumLambda);
 
 			minDt = std::min(minDt , minDtij);
@@ -483,51 +566,69 @@ void Problem::correctInlet()
 		
 		// Two layers of ghost cells are needed because of the dissipation scheme
 		Umag_(ic , jb) = 0.5 * (Riem1_(ic , jb) + Riem2_(ic , jb));
-		Umag_(ic , jb - 1) = Umag_(ic , jb);
+		Umag_(ic , jb - 1) = Vinf;
+		Umag_(ic , jb - 2) = Vinf;
 		
 		U_(ic , jb) = Umag_(ic , jb);
-		U_(ic , jb - 1) = Umag_(ic , jb);
+		U_(ic , jb - 1) = Vinf;
+		U_(ic , jb - 2) = Vinf;
 		
 		c_(ic , jb) = 0.25 * (gamma_ - 1)*(Riem1_(ic, jb) - Riem2_(ic , jb));
-		c_(ic , jb - 1) = c_(ic , jb );
+		c_(ic , jb - 1) = cInf_;
+		c_(ic , jb - 2) = cInf_;
 		
 		M_(ic , jb) = Umag_(ic , jb)/c_(ic, jb);
+		M_(ic , jb - 1) = Minf_;
+		M_(ic , jb - 2) = Minf_;
 		
 		p_(ic , jb) = pInf_/pow((1 + 0.5*(gamma_ - 1) * M_(ic,jb) * M_(ic,jb)), gamma_/(gamma_ - 1));
-		p_(ic , jb - 1) = p_(ic , jb);
+		p_(ic , jb - 1) = pInf_;
+		p_(ic , jb - 2) = pInf_;
 		
 		rho_(ic , jb) = gamma_ * p_(ic , jb)/(c_(ic , jb)*c_(ic , jb));
-		rho_(ic , jb - 1) = rho_(ic , jb );
+		rho_(ic , jb - 1) = rhoInf_;
+		rho_(ic , jb - 2) = rhoInf_;
 
 		rho_.correctFlux_f(ic , jb    );
 		rho_.correctFlux_f(ic , jb - 1);
+		rho_.correctFlux_f(ic , jb - 2);
 		rho_.correctFlux_g(ic , jb    );
 		rho_.correctFlux_g(ic , jb - 1);
+		rho_.correctFlux_g(ic , jb - 2);
 
 		// Correct state vector
 		rhoU_(ic , jb) = rho_(ic , jb)*U_(ic , jb);
-		rhoU_(ic , jb - 1) = rhoU_(ic , jb);
+		rhoU_(ic , jb - 1) = rhoInf_ * Uinf_;
+		rhoU_(ic , jb - 2) = rhoInf_ * Uinf_;
 
 		rhoU_.correctFlux_f(ic , jb    );
 		rhoU_.correctFlux_f(ic , jb - 1);
+		rhoU_.correctFlux_f(ic , jb - 2);
 		rhoU_.correctFlux_g(ic , jb    );
 		rhoU_.correctFlux_g(ic , jb - 1);
+		rhoU_.correctFlux_g(ic , jb - 2);
 		
 		rhoV_(ic , jb) = rho_(ic , jb)*V_(ic , jb);
-		rhoV_(ic , jb - 1) = rhoV_(ic , jb);
+		rhoV_(ic , jb - 1) = 0;
+		rhoV_(ic , jb - 2) = 0;
 	
 		rhoV_.correctFlux_f(ic , jb    );
 		rhoV_.correctFlux_f(ic , jb  - 1    );
-		rhoU_.correctFlux_g(ic , jb    );
-		rhoU_.correctFlux_g(ic , jb - 1);
+		rhoV_.correctFlux_f(ic , jb  - 2    );
+		rhoV_.correctFlux_g(ic , jb    );
+		rhoV_.correctFlux_g(ic , jb - 1);
+		rhoV_.correctFlux_g(ic , jb - 2);
 		
 		rhoE_(ic , jb) = p_(ic , jb)/(gamma_ - 1) + 0.5 * rho_(ic , jb) * Umag_(ic , jb)*Umag_(ic , jb);
-		rhoE_(ic , jb - 1) = rhoE_(ic ,jb - 1);
+		rhoE_(ic , jb - 1) = p_(ic , jb - 1)/(gamma_ - 1) + 0.5 * rho_(ic , jb - 1) * Umag_(ic , jb - 1)*Umag_(ic , jb - 1);
+		rhoE_(ic , jb - 2) = p_(ic , jb - 2)/(gamma_ - 1) + 0.5 * rho_(ic , jb - 2) * Umag_(ic , jb - 2)*Umag_(ic , jb - 2);
 
 		rhoE_.correctFlux_f(ic , jb     );
 		rhoE_.correctFlux_f(ic , jb - 1 );
+		rhoE_.correctFlux_f(ic , jb - 2 );
 		rhoE_.correctFlux_g(ic , jb     );
 		rhoE_.correctFlux_g(ic , jb - 1 );
+		rhoE_.correctFlux_g(ic , jb - 2 );
 
 	}
 
@@ -556,6 +657,9 @@ void Problem::correctWall()
 
 		V_(Icmax - 1 , jc)    = - V_(Icmax - 2, jc);	
 		V_(Icmax     , jc)    = - V_(Icmax - 3, jc);	
+
+		Umag_(Icmax - 1 , jc)    = sqrt(U_(Icmax - 1 , jc) * U_(Icmax - 1 , jc) + V_(Icmax - 1 , jc) * V_(Icmax - 1 , jc));	
+		Umag_(Icmax     , jc)    = sqrt(U_(Icmax     , jc) * U_(Icmax     , jc) + V_(Icmax     , jc) * V_(Icmax     , jc));
 	
 		p_(Icmax - 1 , jc)    =   p_(Icmax - 2, jc);
 		p_(Icmax     , jc)    =   p_(Icmax - 3, jc);
@@ -583,6 +687,9 @@ void Problem::correctWall()
 		V_(1 , jc)    = - V_(2 , jc);	
 		V_(0 , jc)    = - V_(3 , jc);	
 
+		Umag_(1 , jc)    = sqrt(U_(1 , jc) * U_(1 , jc) + V_(1 , jc) * V_(1 , jc));	
+		Umag_(0 , jc)    = sqrt(U_(0 , jc) * U_(0 , jc) + V_(0 , jc) * V_(0 , jc));
+
 		p_(1 , jc)    =   p_(2 , jc);
 		p_(0 , jc)    =   p_(3 , jc);
 	
@@ -597,21 +704,38 @@ void Problem::correctWall()
 
 		rho_.correctFlux_f(1         , jc);
 		rho_.correctFlux_f(0         , jc);
+		rho_.correctFlux_g(1         , jc);
+		rho_.correctFlux_g(0         , jc);
+		rho_.correctFlux_f(Icmax     , jc );
+		rho_.correctFlux_f(Icmax - 1 , jc );
 		rho_.correctFlux_g(Icmax     , jc );
 		rho_.correctFlux_g(Icmax - 1 , jc );
 
+		
 		rhoU_.correctFlux_f(1         , jc);
 		rhoU_.correctFlux_f(0         , jc);
+		rhoU_.correctFlux_g(1         , jc);
+		rhoU_.correctFlux_g(0         , jc);
+		rhoU_.correctFlux_f(Icmax     , jc );
+		rhoU_.correctFlux_f(Icmax - 1 , jc );
 		rhoU_.correctFlux_g(Icmax     , jc );
 		rhoU_.correctFlux_g(Icmax - 1 , jc );
 
 		rhoV_.correctFlux_f(1         , jc);
 		rhoV_.correctFlux_f(0         , jc);
+		rhoV_.correctFlux_g(1         , jc);
+		rhoV_.correctFlux_g(0         , jc);
+		rhoV_.correctFlux_f(Icmax     , jc );
+		rhoV_.correctFlux_f(Icmax - 1 , jc );
 		rhoV_.correctFlux_g(Icmax     , jc );
 		rhoV_.correctFlux_g(Icmax - 1 , jc );
 
 		rhoE_.correctFlux_f(1         , jc);
 		rhoE_.correctFlux_f(0         , jc);
+		rhoE_.correctFlux_g(1         , jc);
+		rhoE_.correctFlux_g(0         , jc);
+		rhoE_.correctFlux_f(Icmax     , jc );
+		rhoE_.correctFlux_f(Icmax - 1 , jc );
 		rhoE_.correctFlux_g(Icmax     , jc );
 		rhoE_.correctFlux_g(Icmax - 1 , jc );
 
