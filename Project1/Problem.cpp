@@ -241,5 +241,8 @@ void Problem::save()
 {
 	_y.save("y");
 	_x.save("x");
+
+
+	writeVTK(_x, _y, "output.vtk");
 }
 

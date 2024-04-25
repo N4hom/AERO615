@@ -32,6 +32,8 @@ int main(int argc, char const *argv[])
 	grid.solve();
 	grid.save();
 
+	
+
     auto endTime = std::chrono::high_resolution_clock::now();
     auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     std::cout << "Run time: " << elapsedTime.count() / 1000.0 << " seconds" << std::endl;
