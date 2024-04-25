@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <math.h>
+#include "Variable.hpp"
 
 // Define a struct for face length
 struct FaceLength {
@@ -74,7 +75,7 @@ public:
         // Since i navigates along rows (y) and j along columns (x), the number of cells in the x direction is the number of columns 
         file >> line >> M_ >> N_;  
         file >> line ;
-        std::cout << "Imax= " << N_ - 1 << ", Jmax= " << M_ - 1 << std::endl;
+        std::cout << "Inmax= " << N_ - 1 << ", Jnmax= " << M_ - 1 << std::endl;
 
         
 
@@ -85,6 +86,9 @@ public:
             std::cerr << "Error: Number of nodes does not match dimensions." << std::endl;
             return;
         }
+
+        Nc_ = N_ - 1;
+        Mc_ = M_ - 1;
 
         // Resize node_ vector
         node_.resize(N_ , std::vector<Node>(M_ , Node(0.0, 0.0)));
@@ -217,8 +221,8 @@ public:
     std::vector<std::vector<FaceLength>>& dx(){return dx_;}
     std::vector<std::vector<FaceLength>>& dy(){return dy_;}
 
-    int Nc(){return N_;}
-    int Mc(){return M_;}
+    int& Nc(){return Nc_;}
+    int& Mc(){return Mc_;}
 
     
 
