@@ -12,7 +12,26 @@
 // Define a struct for face length
 struct FaceLength {
     double s, e, n, w; // Bottom, Right, Top, Left
+
+    void print() const
+    {
+        std::cout  << "n = " << n << ", e = " << e << ", s = " << s
+                 << ", w = " << w <<  std::endl;
+
+    }
 };
+
+struct Face {
+    double s, e, n, w; // Bottom, Right, Top, Left
+
+    void print() const
+    {
+        std::cout  << "n = " << n << ", e = " << e << ", s = " << s
+                 << ", w = " << w  << std::endl;
+
+    }
+};
+
 
 // Define a struct for face normal unit vector
 struct FaceNormal {
@@ -178,7 +197,7 @@ public:
 				n_[i][j].nx_w = (yA - yD) / l_[i][j].w; // West face: x component always negative
 				n_[i][j].ny_w = (xD - xA) / l_[i][j].w; // West face
 
-				// dx of face
+				// dx of face. It retains the sign for the residual calculation
                 dx_[i][j].s = xB - xA;
                 dx_[i][j].e = xC - xB;
                 dx_[i][j].n = xD - xC;
