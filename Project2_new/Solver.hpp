@@ -68,6 +68,8 @@ private:
     double dt_ = 1e-3;
 
     double CFL_ = 1;
+    double nu2_ = 0.;
+    double nu4_ = 0.001;
     double alpha = 0;
     double gamma_ = 1.4;
     double gamma_1_ = 0.4;
@@ -93,9 +95,9 @@ private:
     Field<double> p_; // pressure
     Field<double> c_; // speed of sound
     Field<double> invRho_;
-    Field<double> s2_; // source of 2nd order viscosity
+    Field<Face> s2_; // source of 2nd order viscosity
     Field<Face> lambda_; // eigenvalue
-    Field<double> s4_; // source of 4th order viscosity
+    Field<Face> s4_; // source of 4th order viscosity
 
 public:
     // Constructor
@@ -138,8 +140,8 @@ public:
         c_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
         invRho_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
         lambda_.resize(Nci_, std::vector<Face>(Mci_));
-        s2_.resize(Nci_, std::vector<double>(Mci_));
-        s4_.resize(Nci_, std::vector<double>(Mci_));
+        s2_.resize(Nci_, std::vector<Face>(Mci_));
+        s4_.resize(Nci_, std::vector<Face>(Mci_));
 
         std::cout <<"here " << std::endl;
 
@@ -164,7 +166,9 @@ public:
         std::cout << "g fluxes : " << std::endl;
         printFluxes(g_);
 
-        solve(50 , 10, 1);
+        solve(200 , 10, 1);
+        
+        std::cout << " --------------------- " << std::endl;
         printStateVector(q_);
         std::cout << "f fluxes : " << std::endl;
         printFluxes(f_);
@@ -194,7 +198,7 @@ public:
             for (int j = 0; j <= jmax_; ++j) {
                 q_[0][i][j] = rhoInf_;
                 q_[1][i][j] = rhoInf_ * uInf_;
-                q_[2][i][j] = rhoInf_ * 0 ;   // to be changed
+                q_[2][i][j] = rhoInf_ * 0 ;   
                 q_[3][i][j] = epsInf_;
             }
         }
@@ -294,9 +298,11 @@ void FlowSolver::correctOutlet()
         std::vector<std::vector<double>>& rhoV = q_[2];
         std::vector<std::vector<double>>& rhoE = q_[3];
 
-        rho[i][Jcmax + 1] = rhoInf_ ; // rho(i,0) = rhoInf
-        rhoU[i][Jcmax + 1] = rhoInf_ * uInf_   ; // rhoU(i,0) = rhoInf * uInf
-        rhoV[i][Jcmax + 1] = rhoInf_ * vInf_ ; // rhoV(i,0) = rhoInf * vInf
+
+
+        rho[i][Jcmax + 1]  = 2 * rho[i][Jcmax] -   rho[i][Jcmax - 1]; // rho(i,0) = rhoInf
+        rhoU[i][Jcmax + 1] = 2 * rhoU[i][Jcmax] - rhoU[i][Jcmax - 1]; // rhoU(i,0) = rhoInf * uInf
+        rhoV[i][Jcmax + 1] = 2 * rhoV[i][Jcmax] - rhoV[i][Jcmax - 1]; // rhoV(i,0) = rhoInf * vInf
         
         // total energy 
         rhoE[i][Jcmax + 1] = pInf_*pRatio_/gamma_1_  + 0.5 * (rhoV[i][Jcmax + 1] * rhoV[i][Jcmax + 1] + rhoU[i][Jcmax + 1] * rhoU[i][Jcmax + 1]) / rho[i][Jcmax + 1]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
@@ -451,8 +457,10 @@ void FlowSolver::computeResiduals() {
                 FaceLength& dx_ij = dx_[i][j];
                 FaceLength& dy_ij = dy_[i][j];
 
-                R_[k][i][j] = (fE * dx_ij.e + fW * dx_ij.w + fN * dx_ij.n + fS * dx_ij.s) -
-                              (gE * dy_ij.e + gW * dy_ij.w + gN * dy_ij.n + gS * dy_ij.s);
+                R_[k][i][j] = (fE * dx_ij.e + fW * dx_ij.w + fN * dx_ij.n + fS * dx_ij.s) - 
+                              0.;//(gE * dy_ij.e + gW * dy_ij.w + gN * dy_ij.n + gS * dy_ij.s);
+
+                R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w ) ;  // The f fluxes should be multiplied by dy (e.g. fE *dy.e)
 
 
                 
@@ -536,25 +544,25 @@ void FlowSolver::calculateEigen() {
             // Calculations for each face, using the midpoint formula for averaging between adjacent cells
             // Bottom face
             lambda_[i][j].s = 0.5 * (
-                std::abs(rhoU[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_s + rhoV[ic][jc] * invRho_[ic][jc] * n_[i][j].ny_s) + c_[ic][jc] +
+                std::abs(rhoU[ic    ][jc] * invRho_[ic    ][jc] * n_[i][j].nx_s + rhoV[ic    ][jc] * invRho_[ic    ][jc] * n_[i][j].ny_s) + c_[ic    ][jc] +
                 std::abs(rhoU[ic + 1][jc] * invRho_[ic + 1][jc] * n_[i][j].nx_s + rhoV[ic + 1][jc] * invRho_[ic + 1][jc] * n_[i][j].ny_s) + c_[ic + 1][jc]
             );
 
             // Right face
             lambda_[i][j].e = 0.5 * (
-                std::abs(rhoU[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_e + rhoV[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_e) + c_[ic][jc] +
+                std::abs(rhoU[ic][jc    ] * invRho_[ic][jc    ] * n_[i][j].nx_e + rhoV[ic][jc    ] * invRho_[ic][jc    ] * n_[i][j].nx_e) + c_[ic][jc    ] +
                 std::abs(rhoU[ic][jc + 1] * invRho_[ic][jc + 1] * n_[i][j].nx_e + rhoV[ic][jc + 1] * invRho_[ic][jc + 1] * n_[i][j].nx_e) + c_[ic][jc + 1]
             );
 
             // Top face
             lambda_[i][j].n = 0.5 * (
-                std::abs(rhoU[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_n + rhoV[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_n) + c_[ic][jc] +
+                std::abs(rhoU[ic    ][jc] * invRho_[ic    ][jc] * n_[i][j].nx_n + rhoV[ic    ][jc] * invRho_[ic    ][jc] * n_[i][j].nx_n) + c_[ic    ][jc] +
                 std::abs(rhoU[ic - 1][jc] * invRho_[ic - 1][jc] * n_[i][j].nx_n + rhoV[ic - 1][jc] * invRho_[ic - 1][jc] * n_[i][j].nx_n) + c_[ic - 1][jc]
             );
 
             // Left face
             lambda_[i][j].w = 0.5 * (
-                std::abs(rhoU[ic][jc] * invRho_[ic][jc] * n_[i][j].nx_w + rhoV[ic][jc] * invRho_[ic][jc] * n_[i][j].ny_w) + c_[ic][jc] +
+                std::abs(rhoU[ic][jc    ] * invRho_[ic][jc    ] * n_[i][j].nx_w + rhoV[ic][jc    ] * invRho_[ic][jc    ] * n_[i][j].ny_w) + c_[ic][jc    ] +
                 std::abs(rhoU[ic][jc - 1] * invRho_[ic][jc - 1] * n_[i][j].nx_w + rhoV[ic][jc - 1] * invRho_[ic][jc - 1] * n_[i][j].ny_w) + c_[ic][jc - 1]
             );
         }
@@ -585,13 +593,13 @@ void FlowSolver::runRungeKutta()
 
         // Update the state vector for each cell
         for (int i = 0; i < Nci_ ; ++i) { // includes ghost cells
-            for (int j = 0; j < Mci_ ; ++j) {
+            for (int j = 1; j < Mci_ ; ++j) {
                 for (int k = 0; k < 4; ++k) {  // Loop over components
 
                     int ic = i + 2;
                     int jc = j + 2;
 
-                    q_[k][ic][jc] = q0[k][ic][jc] - alpha[stage] * dt_ / area_[i][j] * (R_[k][i][j] - 0);
+                    q_[k][ic][jc] = q0[k][ic][jc] - alpha[stage] * dt_ / area_[i][j] * (R_[k][i][j] - D_[k][i][j]);
                 }
             }
         }
@@ -604,13 +612,65 @@ void FlowSolver::runRungeKutta()
         updateStateProperties(); // Such as 1/rho, pressure, speed of sound
     }
 
+    printStateVector(q_);
+
 }
 
 
 void FlowSolver::computeDissipation()
 {
     calculateEigen();
+
+    // Loop over each computational cell
+    for (int i = 0; i < Nci_; ++i) {
+        for (int j = 0; j < Mci_; ++j) {
+            // Calculate gradient measures
+
+            int ic = i + 2;
+            int jc = j + 2;
+
+            // sCsi and sEta are the switches term in each cell. They are evaluated with a second order central difference scheme
+            double sCsi = std::abs(p_[ic + 1][jc     ] - 2 * p_[ic][jc] + p_[ic - 1][jc    ])  / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]);
+            double sEta = std::abs(p_[ic    ][jc + 1] - 2 * p_[ic][jc] + p_[ic    ][jc - 1])  / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]);
+
+            // sCsi and sEta evaluated at the east/west (sEta) and north/south (sCsi)
+            // sCsi_i+1/2,j -----> s2_[i][j].s
+            // sCsi_i-1/2,j -----> s2_[i][j].n
+            // sEta_i,j+1/2 -----> s2_[i][j].e
+            // sEta_i,j-1/2 -----> s2_[i][j].w
+           
+            s2_[i][j].s = 0.5 * nu2_ * (sCsi + std::abs(p_[ic + 2][jc    ] - 2 * p_[ic + 1][jc    ] + p_[ic    ][jc]) / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]));
+            s2_[i][j].n = 0.5 * nu2_ * (sCsi + std::abs(p_[ic    ][jc    ] - 2 * p_[ic - 1][jc    ] + p_[ic - 2][jc]) / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]));
+            s2_[i][j].e = 0.5 * nu2_ * (sEta + std::abs(p_[ic    ][jc + 2] - 2 * p_[ic    ][jc + 1] + p_[ic    ][jc]) / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]));
+            s2_[i][j].w = 0.5 * nu2_ * (sEta + std::abs(p_[ic    ][jc    ] - 2 * p_[ic    ][jc - 1] + p_[ic - 2][jc]) / (p_[ic][jc + 1] + 2 * p_[ic][jc] + p_[ic][jc - 1]));
+
+
+            // Second order dissipation terms
+            s4_[i][j].e = std::max(0.0, nu4_ - s2_[i][j].e);
+            s4_[i][j].w = std::max(0.0, nu4_ - s2_[i][j].w);
+            s4_[i][j].n = std::max(0.0, - nu4_ - s2_[i][j].n);  // putting the - sign to mimic 1D problem
+            s4_[i][j].s = std::max(0.0, - nu4_ - s2_[i][j].s);
+
+            // Compute dissipation terms for each variable
+            for (int k = 0; k < 4; ++k) 
+            {
+
+                // (s2.e - s2.w + s2.s - s2.n) -
+                // (s4.e - s4.w + s2.s - s2.n)
+
+                D_[k][i][j] = (s2_[i][j].e * length_[i][j].e * lambda_[i][j].e * (q_[k][ic    ][jc + 1] - q_[k][ic][jc    ])      -
+                               s2_[i][j].w * length_[i][j].w * lambda_[i][j].w * (q_[k][ic    ][jc    ] - q_[k][ic][jc - 1]))     +
+                              (s2_[i][j].s * length_[i][j].s * lambda_[i][j].s * (q_[k][ic + 1][jc    ] - q_[k][ic][jc    ])     -
+                               s2_[i][j].n * length_[i][j].n * lambda_[i][j].n * (q_[k][ic - 1][jc    ] - q_[k][ic][jc    ]))      -
+                              (s4_[i][j].e * length_[i][j].e * lambda_[i][j].e * (q_[k][ic    ][jc + 2] - 3 * q_[k][ic    ][jc + 1] + 3 * q_[k][ic    ][jc    ] - q_[k][ic    ][jc - 1]) -
+                               s4_[i][j].w * length_[i][j].w * lambda_[i][j].w * (q_[k][ic    ][jc + 1] - 3 * q_[k][ic    ][jc    ] + 3 * q_[k][ic    ][jc - 1] - q_[k][ic    ][jc - 2])) +
+                              (s4_[i][j].s * length_[i][j].w * lambda_[i][j].w * (q_[k][ic + 2][jc    ] - 3 * q_[k][ic + 1][jc    ] + 3 * q_[k][ic    ][jc    ] - q_[k][ic - 1][jc    ]) -
+                               s4_[i][j].n * length_[i][j].n * lambda_[i][j].n * (q_[k][ic + 1][jc    ] - 3 * q_[k][ic    ][jc    ] + 3 * q_[k][ic - 1][jc    ] - q_[k][ic - 2][jc    ]));
+            }
+        }
+    }
 }
+
 
 
 void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
@@ -618,9 +678,22 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
 
     for (int n = 1; n <= iterations; ++n) 
     {
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "Iteration 1 "<< std::endl;
         // Calculate dissipation for each cell
         computeDissipation();
+
+        printVector2D(D_[0] , "rho dissipation ");
+        printVector2D(D_[1] , "rhoU dissipation ");
+        printVector2D(D_[2] , "rhoV dissipation ");
+        printVector2D(D_[3] , "rhoE dissipation ");
+
         computeResiduals();
+
+        printVector2D(R_[0] , "rho dissipation ");
+        printVector2D(R_[1] , "rhoU dissipation ");
+        printVector2D(R_[2] , "rhoV dissipation ");
+        printVector2D(R_[3] , "rhoE dissipation ");
 
         // Update q using Runge-Kutta 4 steps
         runRungeKutta();
@@ -630,7 +703,11 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
         for (int k = 0; k < 4; ++k) {
             for (int i = 0; i < Nci_; ++i) {
                 for (int j = 0; j < Mci_; ++j) {
-                    dq_max[k][i][j] = std::abs(q_[k][i][j] - q0_[k][i][j]);
+
+                    int ic = i + 2;
+                    int jc = j + 2;
+
+                    dq_max[k][i][j] = std::abs(q_[k][ic][jc] - q0_[k][ic][jc]);
                 }
             }
         }
@@ -662,6 +739,9 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
             std::ofstream residualFile("residuals.csv", std::ios::app);
             residualFile << n << ", " << globalMax[0] << ", " << globalMax[1] << ", " << globalMax[2] << ", " << globalMax[3] << "\n";
         }
+
+                std::cout << "--------------------------------" << std::endl;
+
     }
 }
 
