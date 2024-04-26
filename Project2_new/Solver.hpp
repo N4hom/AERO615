@@ -145,21 +145,37 @@ public:
 
 
         initializeStateVector();
+        printStateVector(q_);
 
         // std::cout << "p_ " << std::endl; 
         // printVector2D(p_ , "p");
         // printStateVector(q_);
 
         correctInlet();
+        printStateVector(q_);
         correctOutlet();
+        printStateVector(q_);
         correctWall();
-
         printStateVector(q_);
 
+
         computeFluxes();
+        printFluxes(f_);
+        std::cout << "g fluxes : " << std::endl;
+        printFluxes(g_);
 
+        solve(50 , 10, 1);
+        printStateVector(q_);
+        std::cout << "f fluxes : " << std::endl;
+        printFluxes(f_);
+        std::cout << "g fluxes : " << std::endl;
+        printFluxes(g_);
 
-        solve(1 , 1, 1);
+        correctWall();
+        printStateVector(q_);
+
+        printVector2D(p_ , "p");
+
 
     }
 
@@ -264,7 +280,7 @@ void FlowSolver::correctInlet() {
 
 void FlowSolver::correctOutlet()
 {
-    
+    std::cout << "pInf_ " << pInf_ << std::endl;
     std::cout << "Applying outlet boundary conditions " << std::endl;
     for (int i = 0; i < Nc_; ++i) 
     {
@@ -283,7 +299,7 @@ void FlowSolver::correctOutlet()
         rhoV[i][Jcmax + 1] = rhoInf_ * vInf_ ; // rhoV(i,0) = rhoInf * vInf
         
         // total energy 
-        rhoE[i][Jcmax + 1] = pInf_/gamma_1_  + 0.5 * (rhoV[i][Jcmax + 1] * rhoV[i][Jcmax + 1] + rhoU[i][Jcmax + 1] * rhoU[i][Jcmax + 1]) / rho[i][Jcmax + 1]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
+        rhoE[i][Jcmax + 1] = pInf_*pRatio_/gamma_1_  + 0.5 * (rhoV[i][Jcmax + 1] * rhoV[i][Jcmax + 1] + rhoU[i][Jcmax + 1] * rhoU[i][Jcmax + 1]) / rho[i][Jcmax + 1]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
 
 
         rho[i][Jcmax + 2] = rho[i][Jcmax + 1];
@@ -334,7 +350,8 @@ void FlowSolver::correctWall()
                         // rhoV                 sin(alpha)^2                    cos(alpha)^2                    rhoU            cos(alpha)   sin(alpha)
         rhoV[1][jc] = rhoV[2][jc] * (n_[0][j].nx_n * n_[0][j].nx_n - n_[0][j].ny_n * n_[0][j].ny_n) - 2 *  rhoU[2][jc] * n_[0][jc].ny_n * n_[0][jc].nx_n;  // Mirroring the v velocity
         
-
+        
+        
         rhoE[1][jc] = rhoE[2][jc];
 
         // Mirroring the second layer at the top wall
@@ -349,6 +366,15 @@ void FlowSolver::correctWall()
         
 
         rhoE[0][jc] = rhoE[3][jc];
+
+
+        std::cout << "j " << j << std::endl;
+        std::cout << "n_[1][j].nx_n " << n_[1][j].nx_n << std::endl;
+        std::cout << "n_[1][j].ny_n " << n_[1][j].ny_n << std::endl;
+        std::cout << "rhoV[0][jc] " << rhoV[0][jc] << std::endl;
+        std::cout << "rhoV[3][jc] " << rhoV[3][jc] << std::endl;
+        std::cout << "rhoU[3][jc] " << rhoU[3][jc] << std::endl;
+        std::cout << "\n " ;
 
         ////////////////////////////////////////
         // Mirroring the last cells
