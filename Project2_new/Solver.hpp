@@ -127,6 +127,8 @@ public:
         printStateVector(q_);
         correctOutlet();
         printStateVector(q_);
+        correctWall();
+        printStateVector(q_);
 
     }
 
@@ -149,7 +151,7 @@ public:
             for (int j = 0; j <= jmax_; ++j) {
                 q_[0][i][j] = rhoInf_;
                 q_[1][i][j] = rhoInf_ * uInf_;
-                q_[2][i][j] = rhoInf_ * vInf_;
+                q_[2][i][j] = rhoInf_ * uInf_ ;   // to be changed
                 q_[3][i][j] = epsInf_;
             }
         }
@@ -196,7 +198,7 @@ void FlowSolver::correctInlet()
     {
         q_[0][i][0] = rhoInf_ ; // rho(i,0) = rhoInf
         q_[1][i][0] = rhoInf_ * uInf_  ; // rhoU(i,0) = rhoInf * uInf
-        q_[2][i][0] = rhoInf_ * vInf_ ; // rhoV(i,0) = rhoInf * vInf
+        q_[2][i][0] = rhoInf_ * uInf_ ; // rhoV(i,0) = rhoInf * vInf  (set to uInf only for debugging)
         q_[3][i][0] = epsInf_ ; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
 
 
@@ -220,18 +222,23 @@ void FlowSolver::correctOutlet()
         std::cout << "jcmax_ " << jcmax_ << std::endl;
         std::cout << "Jcmax "  << Jcmax << std::endl;
 
-        q_[0][i][Jcmax + 1] = rhoInf_ ; // rho(i,0) = rhoInf
-        q_[1][i][Jcmax + 1] = rhoInf_ * uInf_   ; // rhoU(i,0) = rhoInf * uInf
-        q_[2][i][Jcmax + 1] = rhoInf_ * vInf_ ; // rhoV(i,0) = rhoInf * vInf
+        std::vector<std::vector<double>>& rho = q_[0];
+        std::vector<std::vector<double>>& rhoU = q_[1];
+        std::vector<std::vector<double>>& rhoV = q_[2];
+        std::vector<std::vector<double>>& rhoE = q_[3];
+
+        rho[i][Jcmax + 1] = rhoInf_ ; // rho(i,0) = rhoInf
+        rhoU[i][Jcmax + 1] = rhoInf_ * uInf_   ; // rhoU(i,0) = rhoInf * uInf
+        rhoV[i][Jcmax + 1] = rhoInf_ * vInf_ ; // rhoV(i,0) = rhoInf * vInf
         
         // total energy 
-        q_[3][i][Jcmax + 1] = pInf_/gamma_1_  + 0.5 * (q_[1][i][Jcmax + 1] * q_[1][i][Jcmax + 1] + q_[2][i][Jcmax + 1] * q_[2][i][Jcmax + 1]) / q_[0][i][Jcmax + 1]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
+        rhoE[i][Jcmax + 1] = pInf_/gamma_1_  + 0.5 * (q_[1][i][Jcmax + 1] * q_[1][i][Jcmax + 1] + q_[2][i][Jcmax + 1] * q_[2][i][Jcmax + 1]) / q_[0][i][Jcmax + 1]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
 
 
-        q_[0][i][Jcmax + 2] = q_[0][i][Jcmax + 1];
-        q_[1][i][Jcmax + 2] = q_[1][i][Jcmax + 1];
-        q_[2][i][Jcmax + 2] = q_[2][i][Jcmax + 1];
-        q_[3][i][Jcmax + 2] = q_[3][i][Jcmax + 1];
+        rho[i][Jcmax + 2] = rho[i][Jcmax + 1];
+        rhoU[i][Jcmax + 2] = rhoU[i][Jcmax + 1];
+        rhoV[i][Jcmax + 2] = rhoV[i][Jcmax + 1];
+        rhoE[i][Jcmax + 2] = rhoE[i][Jcmax + 1];
     }
 }
 
@@ -249,7 +256,7 @@ void FlowSolver::correctWall()
 
 
     std::cout << "Applying wall boundary conditions " << std::endl;
-    for (int j = 0; j < Mci_; ++j) 
+    for (int j = 0; j < Mc_; ++j) 
     {
         // I use Jcmax to translate the index by two places
         int jc = j + 2;
@@ -262,27 +269,60 @@ void FlowSolver::correctWall()
         // q[1] = rhoU
         // q[2] = rhoV
 
-        // Mirroring the first cells
-        q_[0][1][jc] = q_[0][2][jc];   // rho(1,j) = rho(2,j)
-        
-        q_[1][1][jc] = q_[1][2][jc] * (n_[0][j].ny_s * n_[0][j].ny_s - n_[0][j].nx_s * n_[0][j].nx_s) - 2 *  q_[2][2][jc] * n_[0][j].ny_s * n_[0][j].nx_s;  // Mirroring the u velocity
-        q_[2][1][jc] = q_[2][2][jc] * (n_[0][j].nx_s * n_[0][j].nx_s - n_[0][j].nx_s * n_[0][j].nx_s) - 2 *  q_[1][2][jc] * n_[0][j].ny_s * n_[0][j].nx_s;  // Mirroring the v velocity
+        std::vector<std::vector<double>>& rho = q_[0];
+        std::vector<std::vector<double>>& rhoU = q_[1];
+        std::vector<std::vector<double>>& rhoV = q_[2];
+        std::vector<std::vector<double>>& rhoE = q_[3];
+
+        // Mirroring the first cells. The data at i = 0 and i = 1 are set using i = 2 and i = 3
+        rho[1][j] = rho[2][j];   // rho(1,j) = rho(2,j)
+       
+                        // rhoU                 cos(alpha)^2                    sin(alpha)^2                    rhoV            cos(alpha)   sin(alpha)
+        rhoU[1][j] = rhoU[2][j] * (n_[0][j].ny_n * n_[0][j].ny_n - n_[0][j].nx_n * n_[0][j].nx_n) - 2 *  rhoV[2][j] * n_[0][j].ny_n * n_[0][j].nx_n;  // Mirroring the u velocity
+                                        
+
+                        // rhoV                 sin(alpha)^2                    cos(alpha)^2                    rhoU            cos(alpha)   sin(alpha)
+        rhoV[1][j] = rhoV[2][j] * (n_[0][j].nx_n * n_[0][j].nx_n - n_[0][j].ny_n * n_[0][j].ny_n) - 2 *  rhoU[2][j] * n_[0][j].ny_n * n_[0][j].nx_n;  // Mirroring the v velocity
         
 
-        q_[3][1][jc] = q_[3][2][jc]
+        rhoE[1][j] = rhoE[2][j];
+
+        // Mirroring the second layer at the top wall
+        rho[0][j] = rho[3][j];   // rho(1,j) = rho(2,j)
+       
+                        // rhoU                 cos(alpha)^2                    sin(alpha)^2                    rhoV            cos(alpha)   sin(alpha)
+        rhoU[0][j] = rhoU[3][j] * (n_[1][j].ny_n * n_[1][j].ny_n - n_[1][j].nx_n * n_[1][j].nx_n) - 2 *  rhoV[1][j] * n_[1][j].ny_n * n_[1][j].nx_n;  // Mirroring the u velocity
+                                        
+
+                        // rhoV                 cos(alpha)^2                    sin(alpha)^2                    rhoU            cos(alpha)   sin(alpha)
+        rhoV[0][j] = rhoV[3][j] * (n_[1][j].nx_n * n_[1][j].nx_n - n_[1][j].ny_n * n_[1][j].ny_n) - 2 *  rhoU[1][j] * n_[1][j].ny_n * n_[1][j].nx_n;  // Mirroring the v velocity
+        
+
+        rhoE[0][j] = rhoE[3][j];
 
         ////////////////////////////////////////
         // Mirroring the last cells
 
-        q_[0][1][jc] = q_[0][2][jc] ; // rho(1,j) = rho(2,j) 
+        rho[Icmax + 1][j] = rho[Icmax][j] ; // rho(Icmax + 1,j) = rho(Icmax,j) 
         
-        q_[1][1][jc] = q_[1][2][jc] * (n_[0][j].ny_s * n_[0][j].ny_s - n_[0][j].nx_s * n_[0][j].nx_s) - 2 *  q_[2][2][jc] * n_[0][j].ny_s * n_[0][j].nx_s;  // Mirroring the u velocity
-        q_[2][1][jc] = q_[2][2][jc] * (n_[0][j].nx_s * n_[0][j].nx_s - n_[0][j].nx_s * n_[0][j].nx_s) - 2 *  q_[1][2][jc] * n_[0][j].ny_s * n_[0][j].nx_s;  // Mirroring the v velocity
-        
-
-        q_[3][1][jc] = q_[3][2][jc]
+            // rhoU_                // rhoU 
+        rhoU[Icmax + 1][j] = rhoU[Icmax][j] * (n_[icmax_][j].ny_s * n_[icmax_][j].ny_s - n_[icmax_][j].nx_s * n_[icmax_][j].nx_s) - 2 *  rhoV[Icmax][j] * n_[icmax_][j].ny_s * n_[icmax_][j].nx_s;  // Mirroring the u velocity
+        rhoV[Icmax + 1][j] = rhoV[Icmax][j] * (n_[icmax_][j].nx_s * n_[icmax_][j].nx_s - n_[icmax_][j].ny_s * n_[icmax_][j].ny_s) - 2 *  rhoU[Icmax][j] * n_[icmax_][j].ny_s * n_[icmax_][j].nx_s;  // Mirroring the v velocity
         
 
+        rhoE[Icmax + 1][j] = rhoE[Icmax][j];
+        
+        // Second layer at the bottom wall
+
+        rho[Icmax + 2][j] = rho[Icmax - 1][j] ; // rho(Icmax + 1,j) = rho(Icmax,j) 
+        
+            // rhoU_                // rhoU 
+        rhoU[Icmax + 2][j] = rhoU[Icmax - 1][j] * (n_[icmax_ - 1][j].ny_s * n_[icmax_ - 1][j].ny_s - n_[icmax_ - 1][j].nx_s * n_[icmax_ - 1][j].nx_s) - 2 *  rhoV[Icmax - 1][j] * n_[icmax_ - 1][j].ny_s * n_[icmax_ - 1][j].nx_s;  // Mirroring the u velocity
+        rhoV[Icmax + 2][j] = rhoV[Icmax - 1][j] * (n_[icmax_ - 1][j].nx_s * n_[icmax_ - 1][j].nx_s - n_[icmax_ - 1][j].ny_s * n_[icmax_ - 1][j].ny_s) - 2 *  q_[1][Icmax - 1][j] * n_[icmax_ - 1][j].ny_s * n_[icmax_ - 1][j].nx_s;  // Mirroring the v velocity
+        
+
+        rhoE[Icmax + 2][j] = rhoE[Icmax - 1][j];
+        
         
     }
 }
