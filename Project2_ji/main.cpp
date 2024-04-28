@@ -4,8 +4,8 @@
 
 int main(int argc, char const *argv[])
 {
-	Mesh mesh("CoarseMesh.vtk");
+	Mesh mesh("grids/coarseMeshLeTe.vtk");
 	FlowSolver euler(mesh);
-	euler.solve(100000,100000,100000);
+	euler.solve(1,1,1);
 	return 0;
 }

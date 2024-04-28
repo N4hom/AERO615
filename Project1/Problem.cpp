@@ -44,10 +44,32 @@ void Problem::initialize()
 	std::cout << "Initializing x " << std::endl;
 
 	_x.setColumn(_Jmax, _L);
+	bool leadingEdge = true;
+	bool trailingEdge = true;
+		
 	for (unsigned int j = 1; j < _x.cols() - 1; ++j)
 	{
+
+		double etaj = j * _deltaEta;
+
 		_x(0,j) = _x(0,j-1) + _deltaEta;
 		_x(_Imax,j) = _x(_Imax,j-1) + _deltaEta;
+		
+		if (etaj > 2 && leadingEdge)
+		{
+
+			_x(0,j - 1) = 2;
+			_x(_Imax,j - 1) = 2;
+			leadingEdge = false;
+		}
+
+		if (etaj > 3 && trailingEdge)
+		{
+			_x(0,j - 1) = 3;
+			_x(_Imax,j - 1) = 3;
+			trailingEdge = false;
+		}
+		
 
 		for (unsigned int i = 1; i < _x.rows() - 1; ++i)
 		{

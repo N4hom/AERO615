@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include "Mesh.hpp"
 
 template<class Type>
@@ -72,7 +73,7 @@ private:
     double logInt_ = 1;
 
     double CFL_ = 1;
-    double nu2_ = 0.;
+    double nu2_ = 0.1;
     double nu4_ = 0.01;
     double alpha = 0;
     double gamma_ = 1.4;
@@ -621,53 +622,53 @@ void FlowSolver::calculateEigen() {
             // Calculations for each face, using the midpoint formula for averaging between adjacent cells
 
 
-            // lambda_[i][j].s = 0.5 * (
-            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_s + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_s) +
-            //     std::abs(rhoU[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].nx_s + rhoV[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].ny_s))
-            //     + c_[ic    ][jc    ];
-
-            // // Right face
-            // lambda_[i][j].e = 0.5 * (
-            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_e + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_e)  +
-            //     std::abs(rhoU[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].nx_e + rhoV[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].ny_e)) 
-            //     + c_[ic    ][jc    ];
-
-            // // Top face
-            // lambda_[i][j].n = 0.5 * (
-            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_n + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_n) + 
-            //     std::abs(rhoU[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].nx_n + rhoV[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].ny_n) ) 
-            //     + c_[ic    ][jc    ];
-
-            // // Left face
-            // lambda_[i][j].w = 0.5 * (
-            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_w + rhoV[ic    ][jc    ] * invRho_[ic     ][jc    ] * n_[i][j].ny_w) + 
-            //     std::abs(rhoU[ic - 1][jc    ] * invRho_[ic - 1][jc    ] * n_[i][j].nx_w + rhoV[ic - 1][jc    ] * invRho_[ic  - 1][jc    ] * n_[i][j].ny_w) ) 
-            //     + c_[ic    ][jc    ];
-
-
-            // Bottom face
             lambda_[i][j].s = 0.5 * (
-                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_s + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_s) + c_[ic    ][jc    ] +
-                std::abs(rhoU[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].nx_s + rhoV[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].ny_s) + c_[ic    ][jc - 1]
-            );
+                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_s + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_s) +
+                std::abs(rhoU[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].nx_s + rhoV[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].ny_s))
+                + c_[ic    ][jc    ];
 
             // Right face
             lambda_[i][j].e = 0.5 * (
-                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_e + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_e) + c_[ic    ][jc    ] +
-                std::abs(rhoU[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].nx_e + rhoV[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].ny_e) + c_[ic + 1][jc    ]
-            );
+                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_e + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_e)  +
+                std::abs(rhoU[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].nx_e + rhoV[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].ny_e)) 
+                + c_[ic    ][jc    ];
 
             // Top face
             lambda_[i][j].n = 0.5 * (
-                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_n + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_n) + c_[ic    ][jc    ] +
-                std::abs(rhoU[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].nx_n + rhoV[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].ny_n) + c_[ic    ][jc + 1]
-            );
+                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_n + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_n) + 
+                std::abs(rhoU[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].nx_n + rhoV[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].ny_n) ) 
+                + c_[ic    ][jc    ];
 
             // Left face
             lambda_[i][j].w = 0.5 * (
-                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_w + rhoV[ic    ][jc    ] * invRho_[ic     ][jc    ] * n_[i][j].ny_w) + c_[ic    ][jc    ] +
-                std::abs(rhoU[ic - 1][jc    ] * invRho_[ic - 1][jc    ] * n_[i][j].nx_w + rhoV[ic - 1][jc    ] * invRho_[ic  - 1][jc    ] * n_[i][j].ny_w) + c_[ic - 1][jc    ]
-            );
+                std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_w + rhoV[ic    ][jc    ] * invRho_[ic     ][jc    ] * n_[i][j].ny_w) + 
+                std::abs(rhoU[ic - 1][jc    ] * invRho_[ic - 1][jc    ] * n_[i][j].nx_w + rhoV[ic - 1][jc    ] * invRho_[ic  - 1][jc    ] * n_[i][j].ny_w) ) 
+                + c_[ic    ][jc    ];
+
+
+            // Bottom face
+            // lambda_[i][j].s = 0.5 * (
+            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_s + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_s) + c_[ic    ][jc    ] +
+            //     std::abs(rhoU[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].nx_s + rhoV[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].ny_s) + c_[ic    ][jc - 1]
+            // );
+
+            // // Right face
+            // lambda_[i][j].e = 0.5 * (
+            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_e + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_e) + c_[ic    ][jc    ] +
+            //     std::abs(rhoU[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].nx_e + rhoV[ic + 1][jc    ] * invRho_[ic + 1][jc    ] * n_[i][j].ny_e) + c_[ic + 1][jc    ]
+            // );
+
+            // // Top face
+            // lambda_[i][j].n = 0.5 * (
+            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_n + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_n) + c_[ic    ][jc    ] +
+            //     std::abs(rhoU[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].nx_n + rhoV[ic    ][jc + 1] * invRho_[ic    ][jc + 1] * n_[i][j].ny_n) + c_[ic    ][jc + 1]
+            // );
+
+            // // Left face
+            // lambda_[i][j].w = 0.5 * (
+            //     std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_w + rhoV[ic    ][jc    ] * invRho_[ic     ][jc    ] * n_[i][j].ny_w) + c_[ic    ][jc    ] +
+            //     std::abs(rhoU[ic - 1][jc    ] * invRho_[ic - 1][jc    ] * n_[i][j].nx_w + rhoV[ic - 1][jc    ] * invRho_[ic  - 1][jc    ] * n_[i][j].ny_w) + c_[ic - 1][jc    ]
+            // );
         }
     }
     
@@ -870,10 +871,24 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
 
 
 void FlowSolver::writeData(const std::string& format, int timestep) {
-    // Construct file name based on the timestep
-    std::string filename = "output_" + std::to_string(timestep) + ".vtk";
-    std::ofstream vtkFile(filename);
+    
+     // Specify the folder path
+    std::string folderPath = "./results/";  // Adjust the path as needed
 
+    // Ensure the folder path ends with a slash (for Unix-like systems) or backslash (for Windows)
+    if (!folderPath.empty() && folderPath.back() != '/' && folderPath.back() != '\\') {
+        folderPath += "/";  // Add a slash at the end if it's missing
+    }
+
+    // Use filesystem to check if the folder exists and create it if it does not
+    if (!std::filesystem::exists(folderPath)) {
+        std::filesystem::create_directories(folderPath);
+    }
+
+    // Construct file name based on the timestep and include the folder path
+    std::string filename = folderPath + "output_" + std::to_string(timestep) + ".vtk";
+    std::ofstream vtkFile(filename);
+    
     if (!vtkFile.is_open()) {
         std::cerr << "Failed to open file for writing VTK data: " << filename << std::endl;
         return;

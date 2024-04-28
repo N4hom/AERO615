@@ -18,7 +18,10 @@ private:
 	unsigned int _N, _M;  
 	unsigned int _Imax; 
 	unsigned int _Jmax;
-	
+
+	unsigned int jLe_;
+	unsigned int jTe_;
+
 	//- Grid size along csi and eta
 	double _deltaCsi, _deltaEta;
 	
