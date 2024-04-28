@@ -30,7 +30,7 @@ private:
 	double _a1, _a2, _a4;
 
 	// Tolerance for convergence criterion
-	double _tol = 1e-5;   
+	double _tol = 1e-13;   
 
 
 

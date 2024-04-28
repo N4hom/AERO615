@@ -183,7 +183,7 @@ void Problem::solve()
 
 		++iter;
 
-		if (iter > 5000)
+		if (iter > 100000)
 		{
 			std::cout << "Not converged !!!!!!!!!!!!!!!!!!!!!!" << std::endl;
 			break;

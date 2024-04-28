@@ -72,8 +72,8 @@ private:
     double logInt_ = 1;
 
     double CFL_ = 1;
-    double nu2_ = 0;
-    double nu4_ = 0.005;
+    double nu2_ = 0.;
+    double nu4_ = 0.01;
     double alpha = 0;
     double gamma_ = 1.4;
     double gamma_1_ = 0.4;
@@ -176,6 +176,7 @@ public:
             /* code */
         }
         correctWall();
+        
         if (debug_)
         {
             printStateVector(q_);
@@ -187,6 +188,7 @@ public:
         
         if (debug_)
         {
+            printVector2D(p_ , "p");
             std::cout << "f fluxes : " << std::endl;
             printFluxes(f_);
             std::cout << "g fluxes : " << std::endl;
@@ -198,9 +200,7 @@ public:
         
 
         
-        printStateVector(q_);
 
-        printVector2D(p_ , "p");
 
         if (Minf_ > 1)
         {
@@ -281,7 +281,7 @@ void FlowSolver::correctInlet() {
     // Loop through all inlet cells
     for (int j = 0; j < Mc_; ++j) {
 
-        int ib = 2;  // Index associated to the inlet
+        int ib = 1;  // Index associated to the inlet
 
         double u2 = q_[1][ib + 1][j] / q_[0][ib + 1][j];  // u velocity at the inlet
         double v2 = q_[2][ib + 1][j] / q_[0][ib + 1][j];  // v velocity at the inlet
@@ -300,7 +300,7 @@ void FlowSolver::correctInlet() {
         // Calculate pressure at the inlet
         double P1 = ptInf_ * pRatio_/ pow(1.0 + 0.5 * gamma_1_ * (V1 / c1) * (V1 / c1), gamma_ * oneByGammaM1_);
         p_[ib][j] = P1;
-        p_[ib - 1][j] = p_[ib][j];
+        p_[ib - 1][j] = pInf_;
 
         // Update state vector at the inlet
         q_[0][ib][j] = gamma_ * P1 / (c1 * c1); // Density
@@ -317,15 +317,15 @@ void FlowSolver::correctInlet() {
             q_[3][ib][j] = epsInf_;  // Energy
         }
 
-        q_[0][1][j] = rhoInf_; // Density
-        q_[1][1][j] = rhoInf_ * uInf_ ;  // Momentum x.  cos(alpha) = 1
-        q_[2][1][j] = rhoInf_ * vInf_;  // Momentum y
-        q_[3][1][j] = epsInf_;  // Energy
+        q_[0][0][j] = rhoInf_; // Density
+        q_[1][0][j] = rhoInf_ * uInf_ ;  // Momentum x.  cos(alpha) = 1
+        q_[2][0][j] = rhoInf_ * vInf_;  // Momentum y
+        q_[3][0][j] = epsInf_;  // Energy
 
-        q_[0][0][j] = q_[0][1][j]; // Density
-        q_[1][0][j] = q_[1][1][j];  // Momentum x.  cos(alpha) = 1
-        q_[2][0][j] = q_[2][1][j];  // Momentum y
-        q_[3][0][j] = q_[3][1][j];  // Energy
+        // q_[0][0][j] = q_[0][1][j]; // Density
+        // q_[1][0][j] = q_[1][1][j];  // Momentum x.  cos(alpha) = 1
+        // q_[2][0][j] = q_[2][1][j];  // Momentum y
+        // q_[3][0][j] = q_[3][1][j];  // Energy
 
     }
 }
@@ -698,7 +698,7 @@ void FlowSolver::runRungeKutta()
         // especially in large-scale simulations.
 
         // Update the state vector for each cell
-        for (int i = 1; i < Nci_ ; ++i) { 
+        for (int i = 0; i < Nci_ ; ++i) { 
             for (int j = 0; j < Mci_ ; ++j) {
                 for (int k = 0; k < 4; ++k) {  // Loop over components
 
@@ -936,6 +936,17 @@ void FlowSolver::writeData(const std::string& format, int timestep) {
             int ic = i + 2;
             int jc = j + 2;
             vtkFile << std::setprecision(6) << q_[2][ic][jc]/q_[0][ic][jc] << "\n";
+        }
+    }
+
+    vtkFile << "SCALARS Mach float 1\n";
+    vtkFile << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < Nci_ ; i++) {
+        for (int j = 0; j < Mci_ ; j++) {
+            int ic = i + 2;
+            int jc = j + 2;
+            double Mach_ij = (q_[1][ic][jc] * q_[1][ic][jc] + q_[2][ic][jc]*q_[2][ic][jc])/(q_[0][ic][jc] * q_[0][ic][jc]) / c_[ic][jc] ;
+            vtkFile << std::setprecision(6) << Mach_ij << "\n";
         }
     }
 
