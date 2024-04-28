@@ -166,7 +166,7 @@ void writeVTK(const Matrix<T>& x_matrix, const Matrix<T>& y_matrix, const string
     assert(x_matrix.rows() == y_matrix.rows() && x_matrix.cols() == y_matrix.cols());
 
     unsigned int rows = x_matrix.rows();
-    unsigned int cols = x_matrix.cols();
+    unsigned int cols = y_matrix.cols();
 
     // Open the file
     ofstream vtkfile(filename);
@@ -180,15 +180,15 @@ void writeVTK(const Matrix<T>& x_matrix, const Matrix<T>& y_matrix, const string
     vtkfile << "VTK output" << endl;
     vtkfile << "ASCII" << endl;
     vtkfile << "DATASET STRUCTURED_GRID" << endl;
-    vtkfile << "DIMENSIONS   " << x_matrix.cols() << "  " << y_matrix.cols() << " 1 " << endl;
-    vtkfile << "POINTS " << rows * cols << " float" << endl;
+    vtkfile << "DIMENSIONS   " << N_ + 2 << "  " << M_ + 2 << " 1 " << endl;
+    vtkfile << "POINTS " << rows * cols << " FLOAT" << endl;
 
     
 
     // Write the points
     for (unsigned int i = 0; i < rows; ++i) {
         for (unsigned int j = 0; j < cols; ++j) {
-            vtkfile << fixed << setprecision(6) << x_matrix(i, j) << " " << y_matrix(i, j) << " 0.0" << endl;
+            vtkfile << fixed << setprecision(14) << x_matrix(i, j) << " " << y_matrix(i, j) << " 0.0" << endl;
         }
     }
 
