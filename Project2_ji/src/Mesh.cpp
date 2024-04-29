@@ -1,138 +1,19 @@
-#ifndef MESH_H
-#define MESH_H
+#include "Mesh.hpp"
 
-
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <vector>
-#include <math.h>
-#include "Variable.hpp"
-
-// Define a struct for face length
-struct FaceLength {
-    double s, e, n, w; // Bottom, Right, Top, Left
-
-    void print() const
-    {
-        std::cout << std::setprecision(6) << std::scientific  << "n = " << n << ", e = " << e << ", s = " << s
-                 << ", w = " << w <<  std::endl;
-
-    }
-};
-
-struct Face {
-    double s, e, n, w; // Bottom, Right, Top, Left
-
-    void print() const
-    {
-        std::cout  << "n = " << n << ", e = " << e << ", s = " << s
-                 << ", w = " << w  << std::endl;
-
-    }
-};
-
-
-// Define a struct for face normal unit vector
-struct FaceNormal {
-    double nx_s, nx_e, nx_n, nx_w; // Bottom, Right, Top, Left
-    double ny_s, ny_e, ny_n, ny_w; // Bottom, Right, Top, Left
-};
-
-struct Node {
-    double x;
-    double y;
-
-    // Constructor
-    Node(double x_coord, double y_coord) : x(x_coord), y(y_coord) {}
-    friend std::ostream& operator<<(std::ostream& os, const Node& node_) {
-        os << "(" << node_.x << ", " << node_.y << ")";
-        return os;
-    }
-};
-
-struct Cell {
-    double x;
-    double y;
-
-    // Constructor
-    Cell(double x_coord, double y_coord) : x(x_coord), y(y_coord) {}
-    
-};
-
-
-
-class Mesh {
-private:
-    int N_; // Number of nodes in x-direction
-    int M_; // Number of nodes in y-direction
-    int Nc_; // Number of cells in y-direction
-    int Mc_; // Number of cells in x-direction
-
-public:
-    // Other members...
-
-    // Method to read grid from file
-    void readGrid(const std::string& filename);
-
-    Mesh(const std::string& filename);
-
-    // Method to calculate cell properties
-    void calculateCellProperties();
-    void printNormals();
-    void printWallNormals();
-    
-
-   
-
-    std::vector<std::vector<Node>>& node(){return node_;}
-    std::vector<std::vector<double>>& Area(){return A_;}
-    std::vector<std::vector<FaceNormal>>& n(){return n_;}
-    std::vector<std::vector<FaceLength>>& length(){return l_;}
-    std::vector<std::vector<FaceLength>>& dx(){return dx_;}
-    std::vector<std::vector<FaceLength>>& dy(){return dy_;}
-    std::vector<std::vector<Cell>>& cell(){return c_;}
-
-    int& Nc(){return Nc_;}
-    int& Mc(){return Mc_;}
-
-    
-
-private:
-    // Store nodes
-    std::vector<std::vector<Node>> node_;
-
-    // Store cell area
-    std::vector<std::vector<double>> A_;
-
-    // Store cell centroids
-    std::vector<std::vector<Cell>> c_;
-
-    // Store face lengths
-    std::vector<std::vector<FaceLength>> l_;
-
-    // Store dx and dy
-    std::vector<std::vector<FaceLength>> dx_;
-    std::vector<std::vector<FaceLength>> dy_;
-
-
-    // Store face orientations
-    std::vector<std::vector<FaceNormal>> n_;
-};
 
 Mesh::Mesh(const std::string& filename)
 { 
         readGrid(filename);
         A_.resize(N_- 1, std::vector<double>(M_ - 1)); // Allocate space once the grid has been read
-        l_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); // Allocate space once the grid has been read
-        dx_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); // Allocate space once the grid has been read
-        dy_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); // Allocate space once the grid has been read
-        n_.resize(N_   , std::vector<FaceNormal>(M_    )); // Allocate space once the grid has been read
-        c_.resize(N_- 1, std::vector<Cell>(M_ - 1 , Cell(0.0 , 0.0))); // Allocate space once the grid has been read
+        l_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); 
+        dx_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); 
+        dy_.resize(N_- 1, std::vector<FaceLength>(M_ - 1)); 
+        n_.resize(N_ - 1, std::vector<FaceNormal>(M_ - 1 ));
+        c_.resize(N_- 1, std::vector<Cell>(M_ - 1 , Cell(0.0 , 0.0))); 
         calculateCellProperties();
 
-        
+        findBumps();
+            
 }
 
 void Mesh::readGrid(const std::string& filename)
@@ -144,7 +25,7 @@ void Mesh::readGrid(const std::string& filename)
         }
 
         std::string line;
-        int inmax, jnmax;
+        
         int nNodes;
         bool foundDataset = false;
 
@@ -173,6 +54,7 @@ void Mesh::readGrid(const std::string& filename)
         // Read number of nodes and verify
         file >> line >> nNodes;
         std::cout << "nNodes : "<< nNodes << std::endl;
+        std::cout << "nCells : "<< (N_ - 1) * (M_ - 1) << std::endl;
         if (N_ * M_ != nNodes) {
             std::cerr << "Error: Number of nodes does not match dimensions." << std::endl;
             return;
@@ -189,25 +71,57 @@ void Mesh::readGrid(const std::string& filename)
 
         std::cout << std::fixed << std::setprecision(16);
 
-        for (int j = 0; j < M_; ++j) 
         {
-            // Looping keeping y constant
-            for (int i = 0; i < N_; ++i) {
-                
-                file >> node_[i][j].x >> node_[i][j].y; // Swap j and i
-                file >> line;
-                 std::cout << "Node (" << i << ", " << j << "): x=" << node_[i][j].x << ", y=" << node_[i][j].y << std::endl;
-               
-            }
+            for (int j = 0; j < M_; ++j) 
+                {
+                    // Looping keeping y constant
+                    for (int i = 0; i < N_; ++i) {
+                        
+                        file >> node_[i][j].x >> node_[i][j].y; // Swap j and i
+                        file >> line;
+                         
+                         if (debug_)
+                         {
+                            std::cout << "Node (" << i << ", " << j << "): x=" << node_[i][j].x << ", y=" << node_[i][j].y << std::endl;
+                         }
+                       
+                    }
+                }
         }
 
-        std::cout << "N " << N_ << std::endl;
-        std::cout << "M " << M_ << std::endl;
-        std::cout << "M " << node_[0].size() << std::endl;
+        
 
         file.close();
 }
 
+
+void Mesh::findBumps()
+{
+
+    int nCells = c_.size();
+
+    
+    for (int i = 0; i < nCells; ++i)
+    {
+       
+        double xBottom = c_[i][0       ].x;
+        double xTop = c_[i][M_ - 2].x;
+
+        if (xBottom >= 2 && xBottom <= 3)
+        {
+            bumpIndexBottom_.push_back(i);           
+        }
+        
+        if (xTop >= 2 && xTop <= 3)
+        {
+        
+            bumpIndexTop_.push_back(i);
+        }
+    }
+
+    
+   
+}
 
 void Mesh::calculateCellProperties()
 {
@@ -220,7 +134,7 @@ void Mesh::calculateCellProperties()
         {
             for (int j = 0; j < M_ - 1; ++j) 
             {
-                // (A_:left-down node_ CCW to D)
+                // (counter-clockwise)
                 //      D_________C
                 //      |         |
                 //      |         |
@@ -320,5 +234,3 @@ void Mesh::printWallNormals()
             }
         
 }
-
-#endif

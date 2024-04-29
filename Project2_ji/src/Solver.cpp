@@ -1,223 +1,227 @@
-#include <vector>
-#include <fstream>
-#include <iostream>
+#include "Solver.hpp"
+#include <sstream>
 #include <iomanip>
-#include <algorithm>
-#include <cmath>
-#include <filesystem>
-#include "Mesh.hpp"
+#include <cassert>
 
-template<class Type>
-using Field = std::vector<std::vector<Type>>;
-
-
-template<typename T>
-void printVector2D(const std::vector<std::vector<T>>& vec2D , const std::string& name="none") {
-    std::cout << "Field : " << name << std::endl;
-    for (const auto& row : vec2D) {
-        for (const auto& elem : row) {
-            std::cout << std::scientific << std::setprecision(6) << elem << " ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "\n " << std::endl;
-}
-
-template<typename T>
-void printStateVector(const std::vector<std::vector<T>>& q) {
-    std::vector<std::string> componentNames = {"rho", "rhoU", "rhoV", "rhoE"};
-    for (size_t i = 0; i < q.size(); ++i) {
-        printVector2D(q[i] , componentNames[i]);
-        std::cout << std::endl;
-    }
-}
-
-template<typename T>
-void printFluxes(const std::vector<std::vector<T>>& fg) {
-    std::vector<std::string> componentNames = {"rho flux", "rhoU flux", "rhoV flux", "rhoE flux"};
-    for (size_t i = 0; i < fg.size(); ++i) {
-        printVector2D(fg[i] , componentNames[i]);
-        std::cout << std::endl;
-    }
-
-}
-
-void printFaceValues(const std::vector<std::vector<Face>>& faceValues)
+FlowSolver::FlowSolver(Mesh& mesh , const std::string caseName , const double MachInf):
+caseName_(caseName),
+Minf_(MachInf),
+mesh_(mesh),
+Nci_(mesh_.Nc()),  // mesh.Nc() gives the number of real cells
+Mci_(mesh_.Mc()),
+Nc_(mesh_.Nc() + 4),  // Now Nc_ is the number of cells of the computational domain
+Mc_(mesh_.Mc() + 4), 
+icmax_(mesh_.Nc() - 1), 
+jcmax_(mesh_.Mc() - 1),
+imax_(mesh_.Nc() + 3), 
+jmax_(mesh_.Mc() + 3),
+area_(mesh_.Area()),
+n_(mesh_.n()),
+length_(mesh_.length()),
+dx_(mesh_.dx()),
+dy_(mesh_.dy()),
+cell_(mesh_.cell()),
+bumpIndexBottom_(mesh_.bumpIndexBottom()),
+bumpIndexTop_(mesh_.bumpIndexTop()),
+forceBottomIntegral_(Vector(0.0 , 0.0 , 0.0)),
+forceTopIntegral_(Vector(0.0 , 0.0 , 0.0))
 {
-    for (const auto& row : faceValues) {
-        for (const auto& elem : row) {
-            elem.print();
-        }
-        std::cout << std::endl;
+    pInf_ = p0Inf_ / pow(1 + 0.5 * gamma_1_ * Minf_ * Minf_, gamma_*invGammaM1_);
+    cInf_ = sqrt(gamma_ * pInf_ /rhoInf_);
+    uInf_ = Minf_ * cInf_ * cos(alpha_);
+    vInf_ = Minf_ * cInf_ * sin(alpha_);
+    epsInf_ = pInf_ * invGammaM1_ + 0.5 * rhoInf_ * (uInf_ * uInf_ + vInf_ * vInf_);
+
+    std::cout <<"Number of real cells along x " << Nci_ << std::endl;
+    std::cout <<"Number of real cells along y " << Mci_ << "\n \n";
+    std::cout <<"Number of real + ghost cells along x " << Nc_ << std::endl;
+    std::cout <<"Number of real + ghost cells along y " << Mc_  << "\n \n";
+    std::cout <<"icmax_ : max i-index in the real domain  " << icmax_ << std::endl;
+    std::cout <<"jcmax_ : max j-index in the real domain  " << jcmax_ << "\n \n";
+    std::cout <<"imax_ : max i-index in the global domain  " << icmax_ << std::endl;
+    std::cout <<"jmax_ : max j-index in the global domain  " << jcmax_ << "\n \n";
+
+    q_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4))); 
+    q0_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
+    f_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
+    g_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
+    R_.resize(4, std::vector<std::vector<double>>(Nci_ , std::vector<double>(Mci_ )));
+    D_.resize(4, std::vector<std::vector<double>>(Nci_ , std::vector<double>(Mci_ )));
+    p_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
+    c_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
+    invRho_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
+    lambda_.resize(Nci_, std::vector<Face>(Mci_));
+    s2_.resize(Nci_, std::vector<Face>(Mci_));
+    s4_.resize(Nci_, std::vector<Face>(Mci_));
+    forceBottom_.resize(bumpIndexBottom_.size() , Vector(0.0 , 0.0, 0.0));
+    forceTop_.resize(bumpIndexTop_.size() , Vector(0.0 , 0.0, 0.0));
+
+    
+    initializeStateVector();
+
+
+    if (debug_)
+    {
+        printStateVector(q_);
     }
-    std::cout << "\n " << std::endl;
+
+    correctInlet();
+    if (debug_)
+    {
+        printStateVector(q_);
+        
+    }
+    correctOutlet();
+    if (debug_)
+    {
+        printStateVector(q_);
+        
+    }
+    correctWall();
+    
+    if (debug_)
+    {
+        printStateVector(q_);
+        
+    }
+
+    updateStateProperties();
+    computeFluxes();
+    
+    if (debug_)
+    {
+        printVector2D(p_ , "p");
+        std::cout << "f fluxes : " << std::endl;
+        printFluxes(f_);
+        std::cout << "g fluxes : " << std::endl;
+        printFluxes(g_);
+        
+    }
+
+    
+    if (Minf_ > 1)
+    {
+        isSuperSonic_ = true;
+    }
+
+
 }
 
-class FlowSolver {
-private:
-    // Variables
-    Mesh& mesh_;
-    int icmax_, jcmax_;
-    int imax_, jmax_;  // REAL + GHOST CELLS
-    int& Nci_, Mci_;
-    int Nc_, Mc_;
-    Field<double>& area_;
-    Field<FaceNormal>& n_;
-    Field<FaceLength>& length_;
-    Field<FaceLength>& dx_;
-    Field<FaceLength>& dy_;
-    double dt_ = 1e-3;
+void FlowSolver::calcForces()
+{
 
-    double iter_ = 1;
-    double writeInt_ = 1;
-    double logInt_ = 1;
+    size_t forceIdxTop = 0;
 
-    double CFL_ = 1;
-    double nu2_ = 0.1;
-    double nu4_ = 0.01;
-    double alpha = 0;
-    double gamma_ = 1.4;
-    double gamma_1_ = 0.4;
-    double oneByGammaM1_ = 1/0.4;
-    double Minf_ = 0.3;
-    double ptInf_ = 101325;
-    double pInf_ = ptInf_ / pow(1 + 0.5 * gamma_1_ * Minf_ * Minf_, gamma_*oneByGammaM1_);
-    double pRatio_ = 0.99;
-    double rhoInf_ = 1.225;
-    double cInf_ = sqrt(gamma_ * pInf_ /rhoInf_);
-    double uInf_ = Minf_ * cInf_;
-    double vInf_ = 0;
-    double epsInf_ = pInf_ * oneByGammaM1_ + 0.5 * rhoInf_ * (uInf_ * uInf_ + vInf_ * vInf_);
-    bool isSuperSonic_ = false;
-    bool debug_ = false;
-    
-    Field<std::vector<double>> q_; // state vector
-    Field<std::vector<double>> qold_; // state vector
-    Field<std::vector<double>> q0_; // old state vector
-    Field<std::vector<double>> f_; // fluxes
-    Field<std::vector<double>> g_; // fluxes
-    Field<std::vector<double>> R_; // residuals terms
-    Field<std::vector<double>> D_; // dissipation terms
-    Field<double> p_; // pressure
-    Field<double> c_; // speed of sound
-    Field<double> invRho_;
-    Field<Face> s2_; // source of 2nd order viscosity
-    Field<Face> lambda_; // eigenvalue
-    Field<Face> s4_; // source of 4th order viscosity
+    // temporary storage for the forces
+    double forceTopIntegralTemp_x = 0;
+    double forceTopIntegralTemp_y = 0;
+    double forceTopIntegralTemp_mag = 0;
 
-public:
-    // Constructor
-    FlowSolver(Mesh& mesh) : 
-    mesh_(mesh), 
-    Nci_(mesh_.Nc()),  // mesh.Nc() gives the number of real cells
-    Mci_(mesh_.Mc()),
-    Nc_(mesh_.Nc() + 4),  // Now Nc_ is the number of cells of the computational domain
-    Mc_(mesh_.Mc() + 4), 
-    icmax_(mesh_.Nc() - 1), 
-    jcmax_(mesh_.Mc() - 1),
-    imax_(mesh_.Nc() + 3), 
-    jmax_(mesh_.Mc() + 3),
-    area_(mesh_.Area()),
-    n_(mesh_.n()),
-    length_(mesh_.length()),
-    dx_(mesh_.dx()),
-    dy_(mesh_.dy())
+    for (auto& i : bumpIndexTop_) 
     {
-        // Resize vectors
-        // A.resize(icmax, std::vector<double>(jcmax));
-        // l.resize(icmax, std::vector<double>(jcmax));
-        // n.resize(icmax, std::vector<std::vector<double>>(jcmax, std::vector<double>(2)));
-        //q_.resize(Nci_ + 4, std::vector<std::vector<double>>(Mci_ + 4, std::vector<double>(4)));
+        auto ic = i + 2;    
 
-        
-        std::cout <<"Nc_  " << Nc_ << std::endl;
-        std::cout <<"Nci_  " << Nci_ << std::endl;
-        std::cout <<"Mci_  " << Mci_ << std::endl;
-        std::cout <<"icmax_  " << icmax_ << std::endl;
-        std::cout <<"imax_  " << imax_ << std::endl;
+        double areaTopij = length_[i][jcmax_].n;
+        double nx = n_[i][jcmax_].nx_n;
+        double ny = n_[i][jcmax_].ny_n;
 
-        q_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
-        qold_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
-        q0_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
-        f_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
-        g_.resize(4, std::vector<std::vector<double>>(Nci_ + 4, std::vector<double>(Mci_ + 4)));
-        R_.resize(4, std::vector<std::vector<double>>(Nci_ , std::vector<double>(Mci_ )));
-        D_.resize(4, std::vector<std::vector<double>>(Nci_ , std::vector<double>(Mci_ )));
-        p_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
-        c_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
-        invRho_.resize(Nci_ + 4, std::vector<double>(Mci_ + 4));
-        lambda_.resize(Nci_, std::vector<Face>(Mci_));
-        s2_.resize(Nci_, std::vector<Face>(Mci_));
-        s4_.resize(Nci_, std::vector<Face>(Mci_));
-
-        
-
-
-        initializeStateVector();
+        debug_ = false;
         if (debug_)
         {
-            printStateVector(q_);
+            std::cout << "index " << i <<  std::endl; 
+            std::cout << "area " << areaTopij <<  std::endl;
+            std::cout << "nx " <<nx <<  std::endl;
+            std::cout << "ny" <<ny <<  std::endl;
             /* code */
         }
+        debug_ = false;
 
-        // std::cout << "p_ " << std::endl; 
-        // printVector2D(p_ , "p");
-        // printStateVector(q_);
+        double pij = p_[ic][jcmax_ + 2];
 
-        correctInlet();
+        double fxij = pij * areaTopij * n_[i][jcmax_].nx_n;
+        double fyij = pij * areaTopij * n_[i][jcmax_].ny_n;
+        double fmag = pij * areaTopij;
+
+
+        forceTop_[forceIdxTop].x   = fxij;
+        forceTop_[forceIdxTop].y   = fyij;
+        forceTop_[forceIdxTop].mag = fmag;
+
+
+        forceTopIntegralTemp_x += forceTop_[forceIdxTop].x;
+        forceTopIntegralTemp_y += forceTop_[forceIdxTop].y;
+        forceTopIntegralTemp_mag += forceTop_[forceIdxTop].mag;
+
+        ++forceIdxTop;    
+    }
+    
+    forceTopIntegral_.x = forceTopIntegralTemp_x;
+    forceTopIntegral_.y = forceTopIntegralTemp_y;
+    forceTopIntegral_.mag = forceTopIntegralTemp_mag;
+
+    
+
+   // std::cout << "forceTop: " << "F_x = " << forceTopIntegral_.x << " F_y = " << forceTopIntegral_.y << " mag = " << forceTopIntegral_.mag << "\n \n";
+
+
+
+    // temporary storage for the forces
+    double forceBottomIntegralTemp_x = 0;
+    double forceBottomIntegralTemp_y = 0;
+    double forceBottomIntegralTemp_mag = 0;
+
+    size_t forceIdxBottom = 0;
+    for (auto& i : bumpIndexBottom_) 
+    {
+        
+        double areaBottomij = length_[i][0].n;
+        double nx = n_[i][0].nx_s;
+        double ny = n_[i][0].ny_s;
+        double pij = p_[i + 2][2];
+
+        debug_ = false;
         if (debug_)
         {
-            printStateVector(q_);
+            std::cout << "pij " << pij << std::endl;
+            std::cout << "index " << i <<  std::endl; 
+            std::cout << "area " << areaBottomij <<  std::endl;
+            std::cout << "nx " <<nx <<  std::endl;
+            std::cout << "ny" <<ny <<  std::endl;
             /* code */
         }
-        correctOutlet();
-        if (debug_)
-        {
-            printStateVector(q_);
-            /* code */
-        }
-        correctWall();
-        
-        if (debug_)
-        {
-            printStateVector(q_);
-            /* code */
-        }
-
-        updateStateProperties();
-        computeFluxes();
-        
-        if (debug_)
-        {
-            printVector2D(p_ , "p");
-            std::cout << "f fluxes : " << std::endl;
-            printFluxes(f_);
-            std::cout << "g fluxes : " << std::endl;
-            printFluxes(g_);
-            /* code */
-        }
-
-        //solve(4000 , 1000, 1000);
-        
+        debug_ = false;
 
         
 
+        double fxij = pij * areaBottomij * nx;
+        double fyij = pij * areaBottomij * ny;
+        double fmag = pij * areaBottomij;
+        forceBottom_[forceIdxBottom].x   = fxij;
+        forceBottom_[forceIdxBottom].y   = fyij;
+        forceBottom_[forceIdxBottom].mag = fmag;
 
-        if (Minf_ > 1)
-        {
-            isSuperSonic_ = true;
-        }
+
+        forceBottomIntegralTemp_x += forceBottom_[forceIdxBottom].x;
+        forceBottomIntegralTemp_y += forceBottom_[forceIdxBottom].y;
+        forceBottomIntegralTemp_mag += forceBottom_[forceIdxBottom].mag;
 
 
+        ++forceIdxBottom;
     }
 
-    // Method for memory allocation
-    void allocateMemory() {
-        // Implement memory allocation logic here
-    }
+    forceBottomIntegral_.x = forceBottomIntegralTemp_x;
+    forceBottomIntegral_.y = forceBottomIntegralTemp_y;
+    forceBottomIntegral_.mag = forceBottomIntegralTemp_mag;
 
-    void initializeStateVector() 
-    {   
+    //std::cout << "forceBottom: " << "F_x = " << forceBottomIntegral_.x << " F_y = " << forceBottomIntegral_.y << " mag = " << forceBottomIntegral_.mag << "\n \n";
+
+
+    
+
+}
+
+void FlowSolver::initializeStateVector()
+{   
         
 
         // Loop through until i <= imax or i < N_. Same for j
@@ -257,24 +261,6 @@ public:
 
     }
 
-    void correctInlet();
-    void correctOutlet();
-    void correctWall();
-    void correctBoundaryConditions();
-    void computeFluxes();
-    void computeResiduals();
-    double correctTimeStep();
-    void runRungeKutta();
-    void updateStateProperties();
-    void calculateEigen();
-    void computeDissipation();
-    void solve(int iterations, int writeInterval, int verboseInterval) ;
-    void writeData(const std::string& format, int timestep);
-
-
-    // Other methods for initialization, numerical scheme, etc.
-};
-
 
 void FlowSolver::correctInlet() {
 
@@ -291,15 +277,15 @@ void FlowSolver::correctInlet() {
         double Vinf = Minf_ * cInf_;
 
         // Calculate Riemann invariants (as an example)
-        double Riem1 =        Vinf         + 2.0 * cInf_ * oneByGammaM1_;
-        double Riem2 = sqrt(u2*u2 + v2*v2) - 2.0 * c2    * oneByGammaM1_;
+        double Riem1 =        Vinf         + 2.0 * cInf_ * invGammaM1_;
+        double Riem2 = sqrt(u2*u2 + v2*v2) - 2.0 * c2    * invGammaM1_;
 
         // Corrected velocity and sound speed
         double V1 = 0.5 * (Riem1 + Riem2);
         double c1 = 0.25 * gamma_1_ * (Riem1 - Riem2);
 
         // Calculate pressure at the inlet
-        double P1 = ptInf_ * pRatio_/ pow(1.0 + 0.5 * gamma_1_ * (V1 / c1) * (V1 / c1), gamma_ * oneByGammaM1_);
+        double P1 = p0Inf_ * pRatio_/ pow(1.0 + 0.5 * gamma_1_ * (V1 / c1) * (V1 / c1), gamma_ * invGammaM1_);
         p_[ib][j] = P1;
         p_[ib - 1][j] = pInf_;
 
@@ -307,7 +293,7 @@ void FlowSolver::correctInlet() {
         q_[0][ib][j] = gamma_ * P1 / (c1 * c1); // Density
         q_[1][ib][j] = q_[0][ib][j] * V1 ;  // Momentum x.  cos(alpha) = 1
         q_[2][ib][j] = 0;  // Momentum y
-        q_[3][ib][j] = P1 * oneByGammaM1_ + 0.5 * (pow(q_[1][ib][j], 2) + pow(q_[2][ib][j], 2)) / q_[0][ib][j];  // Energy
+        q_[3][ib][j] = P1 * invGammaM1_ + 0.5 * (pow(q_[1][ib][j], 2) + pow(q_[2][ib][j], 2)) / q_[0][ib][j];  // Energy
 
 
         if (isSuperSonic_)
@@ -388,7 +374,7 @@ void FlowSolver::correctWall()
     if (debug_)
     {
         std::cout << "Applying wall boundary conditions " << std::endl;
-        /* code */
+        
     }
     for (int i = 0; i < Nci_; ++i) 
     {
@@ -432,19 +418,6 @@ void FlowSolver::correctWall()
         rhoE[ic][0] = rhoE[ic][3];
         
 
-
-
-        // std::cout << "i " << i << std::endl;
-        // std::cout << "n_[i][0].nx_n " << n_[i][0].nx_s << std::endl;
-        // std::cout << "n_[i][1].ny_n " << n_[i][1].ny_s << std::endl;
-        // std::cout << "rhoV[ic][0] " << rhoV[ic][0] << std::endl;
-        // std::cout << "rhoV[ic][1] " << rhoV[ic][1] << std::endl;
-        // std::cout << "rhoV[ic][2] " << rhoV[ic][2] << std::endl;
-        // std::cout << "rhoU[ic][0] " << rhoU[ic][0] << std::endl;
-        // std::cout << "rhoU[ic][1] " << rhoU[ic][1] << std::endl;
-        // std::cout << "rhoU[ic][1] " << rhoU[ic][2] << std::endl;
-        // std::cout << "\n " ;
-
         ////////////////////////////////////////
         // Mirroring the last cells
 
@@ -457,7 +430,7 @@ void FlowSolver::correctWall()
 
         rhoE[ic][Jcmax + 1] = rhoE[ic][Jcmax];
         
-        // Second layer at the bottom wall
+        // Second layer at the top wall
 
         rho[ic][Jcmax + 2] = rho[ic][Jcmax - 1] ; // rho(Icmax + 1,j) = rho(Icmax,j) 
         
@@ -469,16 +442,7 @@ void FlowSolver::correctWall()
         rhoE[ic][Jcmax + 2] = rhoE[ic][Jcmax - 1];
 
 
-        // std::cout << "i " << i << std::endl;
-        // std::cout << "n_[i][jmax].nx_n " << n_[i][jcmax_].nx_n << std::endl;
-        // std::cout << "n_[i][jcmax].ny_n " << n_[i][jcmax_].ny_n << std::endl;
-        // std::cout << "rhoV[ic][Jcmax    ] " << rhoV[ic][Jcmax    ] << std::endl;
-        // std::cout << "rhoV[ic][Jcmax + 1] " << rhoV[ic][Jcmax + 1] << std::endl;
-        // std::cout << "rhoV[ic][Jcmax + 2] " << rhoV[ic][Jcmax + 2] << std::endl;
-        // std::cout << "rhoU[ic][Jcmax    ] " << rhoU[ic][Jcmax    ] << std::endl;
-        // std::cout << "rhoU[ic][Jcmax + 1] " << rhoU[ic][Jcmax + 1] << std::endl;
-        // std::cout << "rhoU[ic][Jcmax + 2] " << rhoU[ic][Jcmax + 2] << std::endl;
-        // std::cout << "\n " ;
+        
         
         
     }
@@ -533,13 +497,7 @@ void FlowSolver::computeResiduals() {
                 FaceLength& dy_ij = dy_[i][j];
 
                 R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w + fN * dy_ij.n + fS * dy_ij.s) - 
-                              (gE * dx_ij.e + gW * dx_ij.w + gN * dx_ij.n + gS * dx_ij.s);
-
-                //R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w ) ;  // The f fluxes should be multiplied by dy (e.g. fE *dy.e)
-
-                
-
-                
+                              (gE * dx_ij.e + gW * dx_ij.w + gN * dx_ij.n + gS * dx_ij.s);                
             }
         }
     }
@@ -592,8 +550,10 @@ double FlowSolver::correctTimeStep()
 void FlowSolver::updateStateProperties() 
 {
     // Loop over all computational cells
-    for (int i = 0; i < Nc_; ++i) {
-        for (int j = 0; j < Mc_; ++j) {
+    for (int i = 0; i < Nc_; ++i) 
+    {
+        for (int j = 0; j < Mc_; ++j) 
+        {
             // Update inverse density
             invRho_[i][j] = 1.0 / q_[0][i][j];  // Assuming q_[0] holds density
 
@@ -607,21 +567,20 @@ void FlowSolver::updateStateProperties()
 }
 
 
-void FlowSolver::calculateEigen() {
-    for (int i = 0; i < Nci_; ++i) {  // Ensure boundaries are handled, iterate within actual cell boundaries
-        for (int j = 0; j < Mci_; ++j) {
-            
-            
-            // Used to access the fields with ghost cells at the corresponding i and j
+void FlowSolver::calculateEigen() 
+{
+    for (int i = 0; i < Nci_; ++i) 
+    {  // Ensure boundaries are handled, iterate within actual cell boundaries
+        for (int j = 0; j < Mci_; ++j) 
+        {
+             // Used to access the fields with ghost cells at the corresponding i and j
             int ic = i + 2;
             int jc = j + 2;
 
             std::vector<std::vector<double>>& rhoU = q_[1] ; 
             std::vector<std::vector<double>>& rhoV = q_[2] ; 
 
-            // Calculations for each face, using the midpoint formula for averaging between adjacent cells
-
-
+            // Calculate eigenvalues at each face
             lambda_[i][j].s = 0.5 * (
                 std::abs(rhoU[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].nx_s + rhoV[ic    ][jc    ] * invRho_[ic    ][jc    ] * n_[i][j].ny_s) +
                 std::abs(rhoU[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].nx_s + rhoV[ic    ][jc - 1] * invRho_[ic    ][jc - 1] * n_[i][j].ny_s))
@@ -675,7 +634,7 @@ void FlowSolver::calculateEigen() {
     if (debug_)
     {
         printFaceValues(lambda_);
-        /* code */
+        
     }
 }
 
@@ -685,9 +644,7 @@ void FlowSolver::runRungeKutta()
     const std::vector<double> alpha = {0.25, 0.333, 0.5 , 1.0}; 
     dt_  = correctTimeStep(); // Compute the minimum time step based on CFL condition
 
-    std::cout << "dt " << dt_ << std::endl;
-
-    //dt_ = 1e-3;
+   
     q0_ = q_; // Make a copy of the original state vector
 
     for (int stage = 0; stage < 4; ++stage) 
@@ -711,13 +668,12 @@ void FlowSolver::runRungeKutta()
             }
         }
 
-        updateStateProperties(); // Such as 1/rho, pressure, speed of sound
+        updateStateProperties(); // Update primitive variables
        
-        correctBoundaryConditions();  // Update the BCs if they are dependent on the intermediate states. BCs depend on updated data
+        correctBoundaryConditions();  // Update the BCs 
         computeFluxes();   // Update the fluxes based on current state vector
         computeResiduals(); // Calculate residuals based on the updated fluxes
         
-        // update the state properties if needed
     }
 
 
@@ -741,24 +697,23 @@ void FlowSolver::computeDissipation()
             double sCsi = std::abs(p_[ic    ][jc + 1] - 2 * p_[ic][jc] + p_[ic    ][jc - 1])  / (p_[ic + 1][jc    ] + 2 * p_[ic][jc] + p_[ic - 1][jc    ]);
 
             // sCsi and sEta evaluated at the east/west (sEta) and north/south (sCsi)
-            // sCsi_i+1/2,j -----> s2_[i][j].s
-            // sCsi_i-1/2,j -----> s2_[i][j].n
-            // sEta_i,j+1/2 -----> s2_[i][j].e
-            // sEta_i,j-1/2 -----> s2_[i][j].w
+            // sCsi_i+1/2,j -----> s2_[i][j].e
+            // sCsi_i-1/2,j -----> s2_[i][j].w
+            // sEta_i,j+1/2 -----> s2_[i][j].n
+            // sEta_i,j-1/2 -----> s2_[i][j].s
            
+            // Second order dissipation terms
             s2_[i][j].s = 0.5 * nu2_ * (sCsi + std::abs(p_[ic    ][jc    ] - 2 * p_[ic    ][jc - 1] + p_[ic    ][jc - 2]) / (p_[ic + 1][jc    ] + 2 * p_[ic][jc] + p_[ic - 1][jc    ]));
             s2_[i][j].n = 0.5 * nu2_ * (sCsi + std::abs(p_[ic    ][jc + 2] - 2 * p_[ic    ][jc + 1] + p_[ic    ][jc    ]) / (p_[ic + 1][jc    ] + 2 * p_[ic][jc] + p_[ic - 1][jc    ]));
             s2_[i][j].e = 0.5 * nu2_ * (sEta + std::abs(p_[ic + 2][jc    ] - 2 * p_[ic + 1][jc    ] + p_[ic    ][jc    ]) / (p_[ic + 1][jc    ] + 2 * p_[ic][jc] + p_[ic - 1][jc    ]));
             s2_[i][j].w = 0.5 * nu2_ * (sEta + std::abs(p_[ic    ][jc    ] - 2 * p_[ic - 1][jc    ] + p_[ic - 2][jc    ]) / (p_[ic + 1][jc    ] + 2 * p_[ic][jc] + p_[ic - 1][jc    ]));
 
-
-            // Second order dissipation terms
+            // Fourth order dissipation terms
             s4_[i][j].e = std::max(0.0, nu4_ - s2_[i][j].e);
             s4_[i][j].w = std::max(0.0, nu4_ - s2_[i][j].w);
             s4_[i][j].n = std::max(0.0, nu4_ - s2_[i][j].n);  
             s4_[i][j].s = std::max(0.0, nu4_ - s2_[i][j].s);  
-            // s4_[i][j].n = 0;
-            // s4_[i][j].s = 0;
+            
             // Compute dissipation terms for each variable
             for (int k = 0; k < 4; ++k) 
             {
@@ -787,13 +742,18 @@ void FlowSolver::computeDissipation()
 
 
 
-void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
-    std::vector<std::vector<std::vector<double>>> dq_max(4, std::vector<std::vector<double>>(Nci_, std::vector<double>(Mci_)));
+void FlowSolver::solve(int iterations, int writeInterval, int residualPrintInterval) {
+    
+    std::vector<std::vector<std::vector<double>>> delta2q(4, std::vector<std::vector<double>>(Nci_, std::vector<double>(Mci_)));
+
+    std::ofstream forcesFile("results/forces_" + caseName_ + "_"+  std::to_string(Minf_) + ".csv", std::ios::app);
+        forcesFile << "    Fx_top "  << ", Fy_top " << ", mag_top "  << ", Fx_bottom " << ", Fy_bottom " << ", mag_bottom " << "\n";
+
+    std::ofstream residualFile("results/residuals_" + caseName_ + "_"+  std::to_string(Minf_) + ".csv", std::ios::app);
 
     for (int n = 1; n <= iterations; ++n) 
     {
-        std::cout << "--------------------------------" << std::endl;
-        std::cout << "Iteration  " << n << std::endl;
+       
         // Calculate dissipation for each cell
         computeDissipation();
 
@@ -803,9 +763,10 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
                 printVector2D(D_[1] , "rhoU dissipation ");
                 printVector2D(D_[2] , "rhoV dissipation ");
                 printVector2D(D_[3] , "rhoE dissipation ");
-            /* code */
+            
         }
 
+        // Compute residuals in each cell
         computeResiduals();
 
         if (debug_)
@@ -814,63 +775,99 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
             printVector2D(R_[1] , "rhoU dissipation ");
             printVector2D(R_[2] , "rhoV dissipation ");
             printVector2D(R_[3] , "rhoE dissipation ");
-            /* code */
         }
 
-        // Update q using Runge-Kutta 4 steps
+        // Update q using Runge-Kutta scheme
         runRungeKutta();
 
-        // Calculate maximum residual changes for convergence check
-        for (int k = 0; k < 4; ++k) {
-            for (int i = 0; i < Nci_; ++i) {
-                for (int j = 0; j < Mci_; ++j) {
+        std::vector<double> globalResidual(4, 0);
+        
+        // Calculate residual at each cell to estimate the error
+        for (int k = 0; k < 4; ++k) 
+        {
+            for (int i = 0; i < Nci_; ++i) 
+            {
+                for (int j = 0; j < Mci_; ++j) 
+                {
 
                     int ic = i + 2;
                     int jc = j + 2;
 
-                    dq_max[k][i][j] = std::abs(q_[k][ic][jc] - q0_[k][ic][jc]);
+                    // Calculate squared difference
+                    delta2q[k][i][j] = std::abs(q_[k][ic][jc] - q0_[k][ic][jc]) * std::abs(q_[k][ic][jc] - q0_[k][ic][jc]);
+
+                    // Update squared differences
+                    globalResidual[k] += delta2q[k][i][j];
                 }
             }
+
+            // Compute the L2 norm for each component of the state vector
+            globalResidual[k] = std::sqrt(globalResidual[k]);
         }
 
 
-        // Find global max residuals for each variable
-        std::vector<double> globalMax(4, 0);
-        for (int k = 0; k < 4; ++k) {
-            for (auto& row : dq_max[k]) {
-                double localMax = *std::max_element(row.begin(), row.end());
-                if (localMax > globalMax[k]) {
-                    globalMax[k] = localMax;
-                }
-            }
-        }
+        // Calculate L-inf norm 
+        // for (int k = 0; k < 4; ++k) 
+        // {
+        //     for (auto& row : dq_max[k]) 
+        //     {
+        //         double localMax = *std::max_element(row.begin(), row.end());
+        //         if (localMax > globalMax[k]) {
+        //             globalMax[k] = localMax;
+        //         }
+        //     }
+        // }
 
-        // Output data and logging
+        // Write fields every writeInterval iterations
         if (n % writeInterval == 0) {
-            writeData("STRUCTURED_GRID", n);  // Assuming writeData is correctly implemented
+            writeData(n);  // Assuming writeData is correctly implemented
         }
 
-        if (n % verboseInterval == 0) {
-            std::cout << "Iteration: " << n;
-            for (auto& max : globalMax) {
-                std::cout << ", Max Residual: " << max;
+
+        // Print residuals every residualPrintInterval iterations
+        if (n % 1000 == 0) 
+        {
+            std::cout << "Iteration: " << n << " L-2 residual :";
+            for (auto& res : globalResidual) {
+                std::cout << ",  " << res  ;
             }
-            std::cout << std::endl;
+            std::cout << "\n \n";
+        }
 
-            // Assuming file output is setup to write residuals
-            std::ofstream residualFile("residuals.csv", std::ios::app);
-            residualFile << n << ", " << globalMax[0] << ", " << globalMax[1] << ", " << globalMax[2] << ", " << globalMax[3] << "\n";
+        
+        if (n % residualPrintInterval == 0) 
+        {
+            calcForces();
+
+            forcesFile << n << ", " << forceTopIntegral_.x << ",  " << forceTopIntegral_.y << ",  " << forceTopIntegral_.mag << ", " 
+                                    << forceBottomIntegral_.x << ",  " << forceBottomIntegral_.y << ",  " << forceBottomIntegral_.mag << "\n";
+
+            residualFile << n << ", " << globalResidual[0] << ", " << globalResidual[1] << ", " << globalResidual[2] << ", " << globalResidual[3] << "\n";
         }
 
 
-        std::cout << n << ", rho: " << globalMax[0] << ", rhoU" << globalMax[1] << ", rhoV " << globalMax[2] << ", rhoE" << globalMax[3] << "\n";
-                std::cout << "--------------------------------------------------------------------" << std::endl;
+       // Check if all residuals are below the tolerance
+        if (std::all_of(globalResidual.begin(), globalResidual.end(), [this](double res ){ return res < tolerance_; })  || n > 1e8)
+        {
+            std::cout << "Convergence achieved at iteration " << n << std::endl;
+            writeData(n);  // Assuming writeData is correctly implemented
+
+            calcForces();
+
+            forcesFile << n << ", " << forceTopIntegral_.x << ",  " << forceTopIntegral_.y << ",  " << forceTopIntegral_.mag << ", " 
+                                    << forceBottomIntegral_.x << ",  " << forceBottomIntegral_.y << ",  " << forceBottomIntegral_.mag << "\n";
+
+            residualFile << n << ", " << globalResidual[0] << ", " << globalResidual[1] << ", " << globalResidual[2] << ", " << globalResidual[3] << "\n";
+            break;  // Exit the loop if all residuals are below the specified tolerance
+        }
+
+
 
     }
 }
 
 
-void FlowSolver::writeData(const std::string& format, int timestep) {
+void FlowSolver::writeData( int timestep) {
     
      // Specify the folder path
     std::string folderPath = "./results/";  // Adjust the path as needed
@@ -885,8 +882,11 @@ void FlowSolver::writeData(const std::string& format, int timestep) {
         std::filesystem::create_directories(folderPath);
     }
 
+    // std::ostringstream formattedStream;
+    // formattedStream << std::fixed << std::setprecision(1) << Minf_;
+
     // Construct file name based on the timestep and include the folder path
-    std::string filename = folderPath + "output_" + std::to_string(timestep) + ".vtk";
+    std::string filename = folderPath + "output_"  + caseName_ + "_"+  std::to_string(Minf_) + "_"+ std::to_string(timestep) + ".vtk";
     std::ofstream vtkFile(filename);
     
     if (!vtkFile.is_open()) {
@@ -968,7 +968,3 @@ void FlowSolver::writeData(const std::string& format, int timestep) {
     vtkFile.close();
     std::cout << "Data written to " << filename << std::endl;
 }
-
-
-
-
