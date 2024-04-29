@@ -176,7 +176,7 @@ void FlowSolver::calcForces()
     for (auto& i : bumpIndexBottom_) 
     {
         
-        double areaBottomij = length_[i][0].n;
+        double areaBottomij = length_[i][0].s;
         double nx = n_[i][0].nx_s;
         double ny = n_[i][0].ny_s;
         double pij = p_[i + 2][2];
@@ -203,9 +203,9 @@ void FlowSolver::calcForces()
         forceBottom_[forceIdxBottom].mag = fmag;
 
 
-        forceBottomIntegralTemp_x += forceBottom_[forceIdxBottom].x;
-        forceBottomIntegralTemp_y += forceBottom_[forceIdxBottom].y;
-        forceBottomIntegralTemp_mag += forceBottom_[forceIdxBottom].mag;
+        forceBottomIntegralTemp_x = forceBottomIntegralTemp_x +  forceBottom_[forceIdxBottom].x;
+        forceBottomIntegralTemp_y = forceBottomIntegralTemp_y + forceBottom_[forceIdxBottom].y;
+        forceBottomIntegralTemp_mag = forceBottomIntegralTemp_mag + forceBottom_[forceIdxBottom].mag;
 
 
         ++forceIdxBottom;

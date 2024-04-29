@@ -54,8 +54,8 @@ fileMediumMach0_3 = 'results/residuals_medium_0.300000.csv'
 fileFineMach0_3 = 'results/residuals_fine_0.300000.csv'
 
 
-plotForces("results/forces_medium_nu2_0.3_0.300000.csv")
-plotResidual("results/residuals_medium_nu2_0.3_0.300000.csv")
+plotForces("results/forces_fine_nu1_0.3_0.500000.csv")
+plotResidual("results/residuals_fine_nu1_0.3_0.500000.csv")
 
 
 # Path to your CSV file

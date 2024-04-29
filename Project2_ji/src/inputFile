@@ -16,3 +16,11 @@ medium mesh    Mach0.3			Mach0.5 			Mach0.7
 nu2				0.05			
 
 nu4				0.01
+
+
+
+fine mesh    Mach0.3			Mach0.5 			Mach0.7	
+
+nu2				0.05			0.3			
+
+nu4				0.01			0.005
