@@ -18,7 +18,10 @@ private:
 	unsigned int _N, _M;  
 	unsigned int _Imax; 
 	unsigned int _Jmax;
-	
+
+	unsigned int jLe_;
+	unsigned int jTe_;
+
 	//- Grid size along csi and eta
 	double _deltaCsi, _deltaEta;
 	
@@ -30,7 +33,7 @@ private:
 	double _a1, _a2, _a4;
 
 	// Tolerance for convergence criterion
-	double _tol = 1e-5;   
+	double _tol = 1e-13;   
 
 
 

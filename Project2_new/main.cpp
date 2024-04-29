@@ -4,7 +4,7 @@
 
 int main(int argc, char const *argv[])
 {
-	Mesh mesh("output.vtk");
+	Mesh mesh("testOneBump.vtk");
 
 	FlowSolver euler(mesh);
 	return 0;

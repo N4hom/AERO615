@@ -14,7 +14,7 @@ int main(int argc, char const *argv[])
 	auto startTime = std::chrono::high_resolution_clock::now();
 
 
-	int defN = 20;
+	int defN = 40;
 	int defM = 120;
 
 	if (argc > 1)

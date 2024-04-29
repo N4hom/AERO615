@@ -77,8 +77,8 @@ private:
     double Minf_ = 0.3;
     double ptInf_ = 101325;
     double pInf_ = ptInf_ / pow(1+0.5 * gamma_1_ * Minf_ * Minf_, gamma_*oneByGammaM1_);
-    double pRatio_ = 0.99;
-    double rhoInf_ = 1;
+    double pRatio_ = 1;
+    double rhoInf_ = 1.225;
     double cInf_ = sqrt(gamma_ * pInf_ /rhoInf_);
     double uInf_ = Minf_ * cInf_;
     double vInf_ = 0;
@@ -110,7 +110,7 @@ public:
     icmax_(mesh_.Nc() - 1), 
     jcmax_(mesh_.Mc() - 1),
     imax_(mesh_.Nc() + 3), 
-    jmax_(mesh_.Nc() + 3),
+    jmax_(mesh_.Mc() + 3),
     area_(mesh_.Area()),
     n_(mesh_.n()),
     length_(mesh_.length()),
@@ -126,6 +126,7 @@ public:
         
         std::cout <<"Nc_  " << Nc_ << std::endl;
         std::cout <<"Nci_  " << Nci_ << std::endl;
+        std::cout <<"Mci_  " << Mci_ << std::endl;
         std::cout <<"icmax_  " << icmax_ << std::endl;
         std::cout <<"imax_  " << imax_ << std::endl;
 
@@ -166,7 +167,11 @@ public:
         std::cout << "g fluxes : " << std::endl;
         printFluxes(g_);
 
+<<<<<<< HEAD
         solve(4000 , 100, 100);
+=======
+        solve(1 , 1, 1);
+>>>>>>> 66be9a04f1c091a3bd36c5d57ff7560404cbbfb7
         
         std::cout << " --------------------- " << std::endl;
         printStateVector(q_);
@@ -251,9 +256,9 @@ void FlowSolver::correctInlet() {
     std::cout << "Applying inlet boundary conditions " << std::endl;
 
     // Loop through all inlet cells
-    for (int i = 0; i < Mc_; ++i) {
+    for (int i = 0; i < Nc_; ++i) {
 
-        int jb = 2;  // Index associated to the inlet
+        int jb = 1;  // Index associated to the inlet
 
         double u2 = q_[1][i][jb + 1] / q_[0][i][jb + 1];  // u velocity at the inlet
         double v2 = q_[2][i][jb + 1] / q_[0][i][jb + 1];  // v velocity at the inlet
@@ -277,6 +282,11 @@ void FlowSolver::correctInlet() {
         q_[1][i][jb] = q_[0][i][jb] * V1 ;  // Momentum x.  cos(alpha) = 1
         q_[2][i][jb] = 0;  // Momentum y
         q_[3][i][jb] = P1 * oneByGammaM1_ + 0.5 * (pow(q_[1][i][jb], 2) + pow(q_[2][i][jb], 2)) / q_[0][i][jb];  // Energy
+
+        q_[0][i][0] = q_[0][i][1]; // Density
+        q_[1][i][0] = q_[1][i][1];  // Momentum x.  cos(alpha) = 1
+        q_[2][i][0] = q_[2][i][1];  // Momentum y
+        q_[3][i][0] = q_[3][i][1];  // Energy
     }
 }
 
@@ -457,13 +467,20 @@ void FlowSolver::computeResiduals() {
                 FaceLength& dx_ij = dx_[i][j];
                 FaceLength& dy_ij = dy_[i][j];
 
+<<<<<<< HEAD
                 // R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w + fN * dy_ij.n + fS * dy_ij.s) - 
                 //               (gE * dx_ij.e + gW * dx_ij.w + gN * dx_ij.n + gS * dx_ij.s);
 
                 R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w ) ;  // The f fluxes should be multiplied by dy (e.g. fE *dy.e)
+=======
+                R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w + fN * dy_ij.n + fS * dy_ij.s) - 
+                              (gE * dx_ij.e + gW * dx_ij.w + gN * dx_ij.n + gS * dx_ij.s);
+>>>>>>> 66be9a04f1c091a3bd36c5d57ff7560404cbbfb7
 
+                //R_[k][i][j] = (fE * dy_ij.e + fW * dy_ij.w ) ;  // The f fluxes should be multiplied by dy (e.g. fE *dy.e)
 
                 
+
                 
             }
         }
@@ -593,7 +610,7 @@ void FlowSolver::runRungeKutta()
 
         // Update the state vector for each cell
         for (int i = 0; i < Nci_ ; ++i) { // includes ghost cells
-            for (int j = 1; j < Mci_ ; ++j) {
+            for (int j = 0; j < Mci_ ; ++j) {
                 for (int k = 0; k < 4; ++k) {  // Loop over components
 
                     int ic = i + 2;
@@ -648,12 +665,19 @@ void FlowSolver::computeDissipation()
             // Second order dissipation terms
             s4_[i][j].e = std::max(0.0, nu4_ - s2_[i][j].e);
             s4_[i][j].w = std::max(0.0, nu4_ - s2_[i][j].w);
+<<<<<<< HEAD
             s4_[i][j].n = 0.;
             s4_[i][j].s = 0.;
 
             // s4_[i][j].n = std::max(0.0, nu4_ - s2_[i][j].n);  // putting the - sign to mimic 1D problem
             // s4_[i][j].s = std::max(0.0, nu4_ - s2_[i][j].s);
 
+=======
+            s4_[i][j].n = std::max(0.0, nu4_ - s2_[i][j].n);  // changed sign 
+            s4_[i][j].s = std::max(0.0, nu4_ - s2_[i][j].s);  
+            // s4_[i][j].n = 0;
+            // s4_[i][j].s = 0;
+>>>>>>> 66be9a04f1c091a3bd36c5d57ff7560404cbbfb7
             // Compute dissipation terms for each variable
             for (int k = 0; k < 4; ++k) 
             {
@@ -661,13 +685,13 @@ void FlowSolver::computeDissipation()
                 // (s2.e - s2.w + s2.s - s2.n) -
                 // (s4.e - s4.w + s2.s - s2.n)
 
-                D_[k][i][j] = (s2_[i][j].e * length_[i][j].e * lambda_[i][j].e * (q_[k][ic    ][jc + 1] - q_[k][ic][jc    ])      -
-                               s2_[i][j].w * length_[i][j].w * lambda_[i][j].w * (q_[k][ic    ][jc    ] - q_[k][ic][jc - 1]))     +
-                              (s2_[i][j].s * length_[i][j].s * lambda_[i][j].s * (q_[k][ic + 1][jc    ] - q_[k][ic][jc    ])     -
-                               s2_[i][j].n * length_[i][j].n * lambda_[i][j].n * (q_[k][ic - 1][jc    ] - q_[k][ic][jc    ]))      -
+                D_[k][i][j] = (s2_[i][j].e * length_[i][j].e * lambda_[i][j].e * (q_[k][ic    ][jc + 1] - q_[k][ic    ][jc    ])      -
+                               s2_[i][j].w * length_[i][j].w * lambda_[i][j].w * (q_[k][ic    ][jc    ] - q_[k][ic    ][jc - 1]))     +
+                              (s2_[i][j].s * length_[i][j].s * lambda_[i][j].s * (q_[k][ic + 1][jc    ] - q_[k][ic    ][jc    ])     -
+                               s2_[i][j].n * length_[i][j].n * lambda_[i][j].n * (q_[k][ic    ][jc    ] - q_[k][ic - 1][jc    ]))      -
                               (s4_[i][j].e * length_[i][j].e * lambda_[i][j].e * (q_[k][ic    ][jc + 2] - 3 * q_[k][ic    ][jc + 1] + 3 * q_[k][ic    ][jc    ] - q_[k][ic    ][jc - 1]) -
                                s4_[i][j].w * length_[i][j].w * lambda_[i][j].w * (q_[k][ic    ][jc + 1] - 3 * q_[k][ic    ][jc    ] + 3 * q_[k][ic    ][jc - 1] - q_[k][ic    ][jc - 2])) +
-                              (s4_[i][j].s * length_[i][j].w * lambda_[i][j].w * (q_[k][ic + 2][jc    ] - 3 * q_[k][ic + 1][jc    ] + 3 * q_[k][ic    ][jc    ] - q_[k][ic - 1][jc    ]) -
+                              (s4_[i][j].s * length_[i][j].s * lambda_[i][j].s * (q_[k][ic + 2][jc    ] - 3 * q_[k][ic + 1][jc    ] + 3 * q_[k][ic    ][jc    ] - q_[k][ic - 1][jc    ]) -
                                s4_[i][j].n * length_[i][j].n * lambda_[i][j].n * (q_[k][ic + 1][jc    ] - 3 * q_[k][ic    ][jc    ] + 3 * q_[k][ic - 1][jc    ] - q_[k][ic - 2][jc    ]));
             }
         }
@@ -701,7 +725,7 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
         // Update q using Runge-Kutta 4 steps
         runRungeKutta();
 
-        
+        std::cout << "Calculating residual " << std::endl; 
         // Calculate maximum residual changes for convergence check
         for (int k = 0; k < 4; ++k) {
             for (int i = 0; i < Nci_; ++i) {
@@ -714,6 +738,8 @@ void FlowSolver::solve(int iterations, int writeInterval, int verboseInterval) {
                 }
             }
         }
+
+        std::cout << "Residual calculated" << std::endl; 
 
         // Find global max residuals for each variable
         std::vector<double> globalMax(4, 0);
@@ -764,25 +790,41 @@ void FlowSolver::writeData(const std::string& format, int timestep) {
     vtkFile << "Structured Grid Example\n";
     vtkFile << "ASCII\n";
     vtkFile << "DATASET STRUCTURED_GRID\n";
-    vtkFile << "DIMENSIONS " << Mci_ + 4 << " " << Nci_ + 4 << " 1\n";
-    vtkFile << "POINTS " << (Mci_ + 4) * (Nci_ + 4) << " float\n";
+    vtkFile << "DIMENSIONS " << Mci_  << " " << Nci_  << " 1\n";
+    vtkFile << "POINTS " << (Nci_ + 4) * (Mci_ + 4) << " float\n";
 
     // Output grid points assuming a unit spacing between grid points
-    for (int j = 0; j < Nci_ + 4; j++) {
-        for (int i = 0; i < Mci_ + 4; i++) {
+    for (int i = 0; i < Nci_ + 4; i++) {
+        for (int j = 0; j < Mci_ + 4; j++) {
             vtkFile << i << " " << j << " 0\n"; // z-coordinate is 0 for 2D grid
         }
     }
 
     // Write data at points or cells
-    vtkFile << "POINT_DATA " << (Mci_ + 4) * (Nci_ + 4) << "\n";
+    vtkFile << "POINT_DATA " << (Nci_ + 4) * (Mci_ + 4) << "\n";
     vtkFile << "SCALARS pressure float 1\n";
     vtkFile << "LOOKUP_TABLE default\n";
 
     // Output pressure data
-    for (int j = 0; j < Nci_ + 4; j++) {
-        for (int i = 0; i < Mci_ + 4; i++) {
+    for (int i = 0; i < Nci_ + 4; i++) {
+        for (int j = 0; j < Mci_ + 4; j++) {
             vtkFile << std::setprecision(6) << p_[i][j] << "\n";
+        }
+    }
+
+    vtkFile << "SCALARS density float 1\n";
+    vtkFile << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < Nci_ + 4; i++) {
+        for (int j = 0; j < Mci_ + 4; j++) {
+            vtkFile << std::setprecision(6) << q_[0][i][j] << "\n";
+        }
+    }
+
+    vtkFile << "SCALARS velocity float 1\n";
+    vtkFile << "LOOKUP_TABLE default\n";
+    for (int i = 0; i < Nci_ + 4; i++) {
+        for (int j = 0; j < Mci_ + 4; j++) {
+            vtkFile << std::setprecision(6) << q_[1][i][j]/q_[0][i][j] << "\n";
         }
     }
 
