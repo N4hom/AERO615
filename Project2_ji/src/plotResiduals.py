@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 
 def plotForces(filename):
@@ -16,6 +17,8 @@ def plotForces(filename):
     plt.figure(figsize=(10, 6))
     plt.plot(time_steps, data['Fx_bottom'], label='Fx_bottom', marker='o', linestyle='-')
     # plt.plot(time_steps, data['Fy_bottom'], label='Fy_bottom', marker='x', linestyle='-')
+
+    plt.tick_params(axis='both', which='major', labelsize=13)
 
     plt.title('Bottom Forces Over Time')
     plt.xlabel('Time Step')
@@ -36,11 +39,13 @@ def plotResidual(filename , Mach, mesh):
     # Plotting the residuals with a logarithmic y-axis
     plt.figure(figsize=(10, 6))
     for column in fileData.columns[1:]:
-        plt.plot(fileData['Iterations'], fileData[column], label=column)
+        plt.plot(fileData['Iterations'], np.log10(fileData[column]), label=column)
+
+    plt.tick_params(axis='both', which='major', labelsize=13)
 
     plt.xlabel('Number of Iterations' , fontsize = 17)
     plt.ylabel('Residuals (L-2 norm)' , fontsize = 17)
-    plt.yscale('log')  # Setting y-axis to logarithmic scale
+    # plt.yscale('log')  # Setting y-axis to logarithmic scale
     plt.title( 'Mach ' + str(Mach) + ' , ' +  mesh + ' mesh' , fontsize = 17)
     plt.legend(fontsize = 17)
     plt.grid(True)
@@ -54,6 +59,7 @@ fileMediumMach0_3 = 'results/residuals_medium_0.300000.csv'
 fileFineMach0_3 = 'results/residuals_fine_0.300000.csv'
 
 
+plotResidual("results/residuals_medium_01_008_0.700000.csv", 0.7 , 'medium')
 plotForces("results/forces_fine_nu2_0.1_0.500000.csv")
 plotResidual("results/residuals_fine_nu2_0.1_0.500000.csv", 0.5 , 'fine')
 plotResidual("results/residuals_coarse_0.300000_.csv", 0.3 , 'coarse')
