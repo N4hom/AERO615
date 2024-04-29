@@ -110,7 +110,7 @@ private:
 
 
     double CFL_ = 2;
-    double nu2_ = 0.1;
+    double nu2_ = 0.3;
     double nu4_ = 0.005;
     double alpha_ = 0;
     double gamma_ = 1.4;
