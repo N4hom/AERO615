@@ -111,7 +111,7 @@ private:
 
     double CFL_ = 2;
     double nu2_ = 0.1;
-    double nu4_ = 0.005;
+    double nu4_ = 0.008;
     double alpha_ = 0;
     double gamma_ = 1.4;
     double gamma_1_ = 0.4;
