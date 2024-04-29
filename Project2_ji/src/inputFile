@@ -1,0 +1,18 @@
+Mach 0.3
+
+nu2 0.01
+nu4 0.05
+
+coarse mesh    Mach0.3			Mach0.5 			Mach0.7	
+
+nu2				0.01						
+
+nu4				0.05
+
+
+
+medium mesh    Mach0.3			Mach0.5 			Mach0.7	
+
+nu2				0.05			
+
+nu4				0.01

@@ -56,6 +56,8 @@ forceTopIntegral_(Vector(0.0 , 0.0 , 0.0))
     forceBottom_.resize(bumpIndexBottom_.size() , Vector(0.0 , 0.0, 0.0));
     forceTop_.resize(bumpIndexTop_.size() , Vector(0.0 , 0.0, 0.0));
 
+
+    std::cout << "forceBottom_.size()  " <<  forceBottom_.size() << std::endl;
     
     initializeStateVector();
 
@@ -341,8 +343,7 @@ void FlowSolver::correctOutlet()
         rhoV[Icmax + 1][j] = 2 * rhoV[Icmax][j] - rhoV[Icmax - 1][j]; // rhoV(i,0) = rhoInf * vInf
         
         // total energy 
-        //rhoE[Icmax + 1][j] = 0.5*pInf_*pRatio_/gamma_1_  + 0.5 * (rhoV[Icmax + 1][j] * rhoV[Icmax + 1][j] + rhoU[Icmax + 1][j] * rhoU[Icmax + 1][j]) / rho[Icmax + 1][j]; // rhoE(i,0) = p/(gamma-1) + 0.5 * rhoInf * uInf * uInf
-        rhoE[Icmax + 1][j] = pInf_ * pRatio_ / gamma_1_ + 0.5 * (rhoU[Icmax + 1][j] * rhoU[Icmax + 1][j] + rhoV[Icmax + 1][j] * rhoV[Icmax + 1][j]) / rho[Icmax + 1][j];
+        rhoE[Icmax + 1][j] = pInf_*pRatio_/ gamma_1_ + 0.5 * (rhoU[Icmax + 1][j] * rhoU[Icmax + 1][j] + rhoV[Icmax + 1][j] * rhoV[Icmax + 1][j]) / rho[Icmax + 1][j];
 
         if (isSuperSonic_)
         {
@@ -960,7 +961,7 @@ void FlowSolver::writeData( int timestep) {
         for (int j = 0; j < Mci_ ; j++) {
             int ic = i + 2;
             int jc = j + 2;
-            double Mach_ij = (q_[1][ic][jc] * q_[1][ic][jc] + q_[2][ic][jc]*q_[2][ic][jc])/(q_[0][ic][jc] * q_[0][ic][jc]) / c_[ic][jc] ;
+            double Mach_ij = sqrt(q_[1][ic][jc] * q_[1][ic][jc] + q_[2][ic][jc]*q_[2][ic][jc])/(q_[0][ic][jc] * q_[0][ic][jc]) / c_[ic][jc] ;
             vtkFile << std::setprecision(6) << Mach_ij << "\n";
         }
     }
