@@ -25,7 +25,7 @@ def plotForces(filename):
     plt.show()
 
 
-def plotResidual(filename):
+def plotResidual(filename , Mach, mesh):
     # Read the CSV file
     fileData = pd.read_csv(filename, header=None, delimiter=r"\s*,\s*", engine='python')
 
@@ -39,10 +39,10 @@ def plotResidual(filename):
         plt.plot(fileData['Iterations'], fileData[column], label=column)
 
     plt.xlabel('Number of Iterations' , fontsize = 17)
-    plt.ylabel('Residual Values (L-2 norm)' , fontsize = 17)
+    plt.ylabel('Residuals (L-2 norm)' , fontsize = 17)
     plt.yscale('log')  # Setting y-axis to logarithmic scale
-    plt.title('Mach = 0.3, coarse mesh' , fontsize = 17)
-    plt.legend()
+    plt.title( 'Mach ' + str(Mach) + ' , ' +  mesh + ' mesh' , fontsize = 17)
+    plt.legend(fontsize = 17)
     plt.grid(True)
     plt.show()
 
@@ -54,8 +54,11 @@ fileMediumMach0_3 = 'results/residuals_medium_0.300000.csv'
 fileFineMach0_3 = 'results/residuals_fine_0.300000.csv'
 
 
-plotForces("results/forces_fine_nu1_0.3_0.500000.csv")
-plotResidual("results/residuals_fine_nu1_0.3_0.500000.csv")
+plotForces("results/forces_fine_nu2_0.1_0.500000.csv")
+plotResidual("results/residuals_fine_nu2_0.1_0.500000.csv", 0.5 , 'fine')
+plotResidual("results/residuals_coarse_0.300000_.csv", 0.3 , 'coarse')
+plotResidual("results/residuals_coarse_0.500000.csv", 0.5 , 'coarse')
+plotResidual("results/residuals_coarse_0.700000.csv", 0.7 , 'coarse')
 
 
 # Path to your CSV file
@@ -72,8 +75,8 @@ plt.figure(figsize=(10, 6))
 for column in coarseMach0_3.columns[1:]:
     plt.plot(coarseMach0_3['Iterations'], coarseMach0_3[column], label=column)
 
-plt.xlabel('Number of Iterations' , fontsize = 17)
-plt.ylabel('Residual Values (L-2 norm)' , fontsize = 17)
+plt.xlabel('Number of iterations' , fontsize = 17)
+plt.ylabel('Residuals (L-2 norm)' , fontsize = 17)
 plt.yscale('log')  # Setting y-axis to logarithmic scale
 plt.title('Mach = 0.3, coarse mesh' , fontsize = 17)
 plt.legend()
