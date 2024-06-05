@@ -5,9 +5,9 @@ nu4 0.05
 
 coarse mesh    Mach0.3			Mach0.5 			Mach0.7	
 
-nu2				0.01						
+nu2				0.001			0.01				0.1
 
-nu4				0.05
+nu4				0.01 			0.05 				0.01
 
 
 
@@ -21,6 +21,14 @@ nu4				0.01			0.008				0.008
 
 fine mesh    Mach0.3			Mach0.5 			Mach0.7	
 
-nu2				0.05			0.3					0.3
+nu2				0.1				0.3					0.3
 
-nu4				0.01			0.005				0.005
+nu4				0.005			0.005				0.005
+
+
+
+completed
+
+fine			Mach0.7			Mach0.5
+medium 			Mach0.7			Mach0.5 		Mach0.3
+coarse 			
